@@ -6,8 +6,9 @@ import grpc
 from air_traffic_pb2 import AirTrafficRequest
 from air_traffic_pb2_grpc import AirTrafficServiceStub
 
-class AirTrafficEnvironment:
+class AirTrafficEnvironment(gym.Env):
     def __init__(self, config_data, metrics_data, scaler, grpc_channel):
+        super(AirTrafficEnvironment, self).__init__()
         self.configurations = config_data['Configurations']
         self.metrics_data = metrics_data
         self.scaler = scaler
@@ -17,12 +18,13 @@ class AirTrafficEnvironment:
         self.channel = grpc_channel
         self.stub = AirTrafficServiceStub(self.channel)
 
-        self.observation_space = self._get_state_size()
-        self.action_space = len(self.configurations)
+        max_sectors = max([len(self.metrics_data[metric][0]) for metric in self.metrics_data])
+        self.observation_space = spaces.Box(low=0, high=1, shape=(1 + 5 * max_sectors,), dtype=np.float32)
+        self.action_space = spaces.Discrete(len(self.configurations))
 
     def _get_state_size(self):
         max_sectors = max([len(self.metrics_data[metric][0]) for metric in self.metrics_data])
-        return 1 + 4 * max_sectors
+        return 1 + 5 * max_sectors
 
     def reset(self):
         self.current_step = 0
@@ -37,8 +39,17 @@ class AirTrafficEnvironment:
         for metric in metrics.values():
             step_metrics.extend(metric[self.current_step])
 
-        scaled_metrics = self.scaler.transform([step_metrics])[0]
-        return np.concatenate(([self.current_configuration], scaled_metrics))
+        # Ensure the correct number of features
+        required_features = self._get_state_size() - 1  # Subtract 1 for the current configuration
+        while len(step_metrics) < required_features:
+            step_metrics.append(0)  # Add zeros if there are not enough features
+        step_metrics = step_metrics[:required_features]  # Trim if there are too many features
+
+        # Include current configuration at the beginning
+        full_features = [self.current_configuration] + step_metrics
+
+        scaled_metrics = self.scaler.transform([full_features])[0]
+        return np.array(scaled_metrics)
 
     def step(self, action):
         self.current_configuration = action

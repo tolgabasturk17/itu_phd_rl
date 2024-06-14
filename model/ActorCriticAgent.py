@@ -1,7 +1,7 @@
 import torch as T
 import torch.nn.functional as F
 
-from ActorCriticNetwork import ActorCriticNetwork
+from model.ActorCriticNetwork import ActorCriticNetwork
 
 class ActorCriticAgent():
     def __init__(self, lr, input_dims, n_actions, gamma=0.99):
