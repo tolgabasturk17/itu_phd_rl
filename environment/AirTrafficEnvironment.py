@@ -2,67 +2,76 @@ import gym
 from gym import spaces
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
+import grpc
+from air_traffic_pb2 import AirTrafficRequest
+from air_traffic_pb2_grpc import AirTrafficServiceStub
 
-
-class AirTrafficEnvironment(gym.Env):
-    def __init__(self, config_data, metrics_data, scaler, max_input_dim):
-        self.config_data = config_data
+class AirTrafficEnvironment:
+    def __init__(self, config_data, metrics_data, scaler, grpc_channel):
+        self.configurations = config_data['Configurations']
         self.metrics_data = metrics_data
         self.scaler = scaler
-        self.max_input_dim = max_input_dim
-
-        # Action and observation space
-        self.action_space = spaces.Discrete(len(config_data['Configurations']))
-        self.observation_space = spaces.Box(low=0, high=1, shape=(1 + len(metrics_data) * max_input_dim,),
-                                            dtype=np.float32)
-
-        self.current_step = 0
         self.current_configuration = config_data['current_configuration']
+        self.current_step = 0
+
+        self.channel = grpc_channel
+        self.stub = AirTrafficServiceStub(self.channel)
+
+        self.observation_space = self._get_state_size()
+        self.action_space = len(self.configurations)
+
+    def _get_state_size(self):
+        max_sectors = max([len(self.metrics_data[metric][0]) for metric in self.metrics_data])
+        return 1 + 4 * max_sectors
 
     def reset(self):
         self.current_step = 0
-        self.current_configuration = self.config_data['current_configuration']
-        return self._get_observation()
+        self.current_configuration = 0
+        self.state = self._get_state()
+        return self.state
+
+    def _get_state(self):
+        metrics = self.metrics_data
+        step_metrics = []
+
+        for metric in metrics.values():
+            step_metrics.extend(metric[self.current_step])
+
+        scaled_metrics = self.scaler.transform([step_metrics])[0]
+        return np.concatenate(([self.current_configuration], scaled_metrics))
 
     def step(self, action):
         self.current_configuration = action
         self.current_step += 1
 
+        new_metrics = self._get_new_metrics_from_java(action)
+        reward = self._calculate_reward(new_metrics)
         done = self.current_step >= len(self.metrics_data['sector_density'])
+        self.state = self._get_state()
+        return self.state, reward, done, {}
 
-        reward = self._calculate_reward()
-        info = {}
+    def _get_new_metrics_from_java(self, action):
+        request = AirTrafficRequest(configuration_id=self.configurations[action])
+        response = self.stub.SendData(request)
+        new_metrics = {
+            'sector_density': response.sector_density,
+            'loss_of_separation': response.loss_of_separation,
+            'speed_deviation': response.speed_deviation,
+            'airflow_complexity': response.airflow_complexity,
+            'sector_entry': response.sector_entry,
+        }
+        return new_metrics
 
-        return self._get_observation(), reward, done, info
+    def _calculate_reward(self, new_metrics):
+        total_density = sum(new_metrics['sector_density'])
+        total_los = sum(new_metrics['loss_of_separation'])
+        total_speed_deviation = sum(new_metrics['speed_deviation'])
+        total_airflow_complexity = sum(new_metrics['airflow_complexity'])
+        total_sector_entry = sum(new_metrics['sector_entry'])
 
-    def _get_observation(self):
-        step_metrics = []
-        for metric_name, metric in self.metrics_data.items():
-            padded_metric = metric[self.current_step] + [0] * (self.max_input_dim - len(metric[self.current_step]))
-            step_metrics.extend(padded_metric)
-        observation = [self.current_configuration] + step_metrics
-        observation = self.scaler.transform([observation])[0]
-        return np.array(observation, dtype=np.float32)
+        scaled_metrics = self.scaler.transform([[total_density, total_los, total_speed_deviation, total_airflow_complexity, total_sector_entry]])[0]
 
-    def _calculate_reward(self, action):
-        # Implement your reward calculation logic
-        # Here, you should use the selected action (configuration)
-        # and compare the actual metrics with expected ones to calculate the reward
-        metrics = []
-        for metric in self.metrics_data.values():
-            metrics.extend(metric[self.current_step])
-
-        sector_density = sum(self.metrics_data['sector_density'][self.current_step])
-        total_los = sum(self.metrics_data['loss_of_separation'][self.current_step])
-        total_speed_deviation = sum(self.metrics_data['speed_deviation'][self.current_step])
-        total_airflow_complexity = sum(self.metrics_data['airflow_complexity'][self.current_step])
-        total_sector_entry = sum(self.metrics_data['sector_entry'][self.current_step])
-
-        # Define weighting factors for each metric
-        alpha, beta, gamma, delta, epsilon = 1, 1, 1, 1, 1  # Adjust these values as needed
-
-        reward = -(alpha * sector_density + beta * total_los + gamma * total_speed_deviation +
-                   delta * total_airflow_complexity + epsilon * total_sector_entry)
+        reward = -(scaled_metrics[0] + scaled_metrics[1] + scaled_metrics[2] + scaled_metrics[3] + scaled_metrics[4])
         return reward
 
     def render(self, mode='human', close=False):

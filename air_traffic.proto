@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package airtraffic;
+
+// Request message
+message AirTrafficRequest {
+  string configuration_id = 1;
+}
+
+// Response message
+message AirTrafficResponse {
+  repeated double sector_density = 1;
+  repeated double loss_of_separation = 2;
+  repeated double speed_deviation = 3;
+  repeated double airflow_complexity = 4;
+  repeated double sector_entry = 5;
+}
+
+// Service definition
+service AirTrafficService {
+  rpc SendData (AirTrafficRequest) returns (AirTrafficResponse);
+}
