@@ -1,11 +1,5 @@
 syntax = "proto3";
-
-package airtraffic;
-
-// Request message
-message AirTrafficRequest {
-  string configuration_id = 1;
-}
+ package edu.itu.cs.atcas.infrastructure.ml;
 
 // Response message
 message AirTrafficResponse {
@@ -16,7 +10,12 @@ message AirTrafficResponse {
   repeated double sector_entry = 5;
 }
 
+// Request message
+message AirTrafficRequest {
+  string configuration_id = 1;
+}
+
 // Service definition
 service AirTrafficService {
-  rpc SendData (AirTrafficRequest) returns (AirTrafficResponse);
+  rpc GetAirTrafficInfo (AirTrafficRequest) returns (AirTrafficResponse);
 }

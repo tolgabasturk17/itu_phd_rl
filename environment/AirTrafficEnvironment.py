@@ -63,7 +63,7 @@ class AirTrafficEnvironment(gym.Env):
 
     def _get_new_metrics_from_java(self, action):
         request = AirTrafficRequest(configuration_id=self.configurations[action])
-        response = self.stub.SendData(request)
+        response = self.stub.GetAirTrafficInfo(request)
         new_metrics = {
             'sector_density': response.sector_density,
             'loss_of_separation': response.loss_of_separation,
