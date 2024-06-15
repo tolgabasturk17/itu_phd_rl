@@ -40,8 +40,8 @@ class AirTrafficServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.SendData = channel.unary_unary(
-                '/airtraffic.AirTrafficService/SendData',
+        self.GetAirTrafficInfo = channel.unary_unary(
+                '/edu.itu.cs.atcas.infrastructure.ml.AirTrafficService/GetAirTrafficInfo',
                 request_serializer=air__traffic__pb2.AirTrafficRequest.SerializeToString,
                 response_deserializer=air__traffic__pb2.AirTrafficResponse.FromString,
                 _registered_method=True)
@@ -51,7 +51,7 @@ class AirTrafficServiceServicer(object):
     """Service definition
     """
 
-    def SendData(self, request, context):
+    def GetAirTrafficInfo(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -60,16 +60,16 @@ class AirTrafficServiceServicer(object):
 
 def add_AirTrafficServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'SendData': grpc.unary_unary_rpc_method_handler(
-                    servicer.SendData,
+            'GetAirTrafficInfo': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetAirTrafficInfo,
                     request_deserializer=air__traffic__pb2.AirTrafficRequest.FromString,
                     response_serializer=air__traffic__pb2.AirTrafficResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'airtraffic.AirTrafficService', rpc_method_handlers)
+            'edu.itu.cs.atcas.infrastructure.ml.AirTrafficService', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('airtraffic.AirTrafficService', rpc_method_handlers)
+    server.add_registered_method_handlers('edu.itu.cs.atcas.infrastructure.ml.AirTrafficService', rpc_method_handlers)
 
 
  # This class is part of an EXPERIMENTAL API.
@@ -78,7 +78,7 @@ class AirTrafficService(object):
     """
 
     @staticmethod
-    def SendData(request,
+    def GetAirTrafficInfo(request,
             target,
             options=(),
             channel_credentials=None,
@@ -91,7 +91,7 @@ class AirTrafficService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/airtraffic.AirTrafficService/SendData',
+            '/edu.itu.cs.atcas.infrastructure.ml.AirTrafficService/GetAirTrafficInfo',
             air__traffic__pb2.AirTrafficRequest.SerializeToString,
             air__traffic__pb2.AirTrafficResponse.FromString,
             options,
