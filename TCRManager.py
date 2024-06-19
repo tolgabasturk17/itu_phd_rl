@@ -13,7 +13,7 @@ class TCRManager:
 
         # Flatten metrics data for scaling
         flattened_metrics = []
-        for step in range(len(metrics_data['sector_density'])):
+        for step in range(len(metrics_data['cruising_sector_density'])):
             step_metrics = []
             for metric in metrics_data.values():
                 step_metrics.extend(metric[step])
@@ -48,10 +48,20 @@ class TCRManager:
 if __name__ == "__main__":
     # Example metrics data (fill with actual data)
     metrics_data = {
-        'sector_density': [
+        'cruising_sector_density': [
             [1, 2, 3],  # Step 1
             [4, 5, 6],  # Step 2
-            # Add the rest of your sector_density data here
+            # Add the rest of your cruising_sector_density data here
+        ],
+        'climbing_sector_density': [
+            [1, 2, 3],  # Step 1
+            [4, 5, 6],  # Step 2
+            # Add the rest of your climbing_sector_density data here
+        ],
+        'descending_sector_density': [
+            [1, 2, 3],  # Step 1
+            [4, 5, 6],  # Step 2
+            # Add the rest of your descending_sector_density data here
         ],
         'loss_of_separation': [
             [0, 1, 0],  # Step 1

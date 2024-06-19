@@ -1,21 +1,41 @@
 syntax = "proto3";
- package edu.itu.cs.atcas.infrastructure.ml;
 
-// Response message
-message AirTrafficResponse {
-  repeated double sector_density = 1;
-  repeated double loss_of_separation = 2;
-  repeated double speed_deviation = 3;
-  repeated double airflow_complexity = 4;
-  repeated double sector_entry = 5;
-}
+package edu.itu.cs.atcas.infrastructure.ml;
 
 // Request message
 message AirTrafficRequest {
   string configuration_id = 1;
 }
 
+// Empty request message
+message EmptyRequest {}
+
+// Response message
+message AirTrafficResponse {
+  string configuration_id = 1;
+  repeated double cruising_sector_density = 2;
+  repeated double climbing_sector_density = 3;
+  repeated double descending_sector_density = 4;
+  repeated double loss_of_separation = 5;
+  repeated double speed_deviation = 6;
+  repeated double sector_entry = 7;
+  repeated double airflow_complexity = 8;
+}
+
+// Message for periodic updates
+message AirTrafficComplexity {
+  string configuration_id = 1;
+  repeated double cruising_sector_density = 2;
+  repeated double climbing_sector_density = 3;
+  repeated double descending_sector_density = 4;
+  repeated double loss_of_separation = 5;
+  repeated double speed_deviation = 6;
+  repeated double sector_entry = 7;
+  repeated double airflow_complexity = 8;
+}
+
 // Service definition
 service AirTrafficService {
   rpc GetAirTrafficInfo (AirTrafficRequest) returns (AirTrafficResponse);
+  rpc StreamAirTrafficInfo (EmptyRequest) returns (stream AirTrafficComplexity);
 }

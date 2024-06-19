@@ -45,6 +45,11 @@ class AirTrafficServiceStub(object):
                 request_serializer=air__traffic__pb2.AirTrafficRequest.SerializeToString,
                 response_deserializer=air__traffic__pb2.AirTrafficResponse.FromString,
                 _registered_method=True)
+        self.StreamAirTrafficInfo = channel.unary_stream(
+                '/edu.itu.cs.atcas.infrastructure.ml.AirTrafficService/StreamAirTrafficInfo',
+                request_serializer=air__traffic__pb2.EmptyRequest.SerializeToString,
+                response_deserializer=air__traffic__pb2.AirTrafficComplexity.FromString,
+                _registered_method=True)
 
 
 class AirTrafficServiceServicer(object):
@@ -57,6 +62,12 @@ class AirTrafficServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def StreamAirTrafficInfo(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_AirTrafficServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -64,6 +75,11 @@ def add_AirTrafficServiceServicer_to_server(servicer, server):
                     servicer.GetAirTrafficInfo,
                     request_deserializer=air__traffic__pb2.AirTrafficRequest.FromString,
                     response_serializer=air__traffic__pb2.AirTrafficResponse.SerializeToString,
+            ),
+            'StreamAirTrafficInfo': grpc.unary_stream_rpc_method_handler(
+                    servicer.StreamAirTrafficInfo,
+                    request_deserializer=air__traffic__pb2.EmptyRequest.FromString,
+                    response_serializer=air__traffic__pb2.AirTrafficComplexity.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -94,6 +110,33 @@ class AirTrafficService(object):
             '/edu.itu.cs.atcas.infrastructure.ml.AirTrafficService/GetAirTrafficInfo',
             air__traffic__pb2.AirTrafficRequest.SerializeToString,
             air__traffic__pb2.AirTrafficResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StreamAirTrafficInfo(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/edu.itu.cs.atcas.infrastructure.ml.AirTrafficService/StreamAirTrafficInfo',
+            air__traffic__pb2.EmptyRequest.SerializeToString,
+            air__traffic__pb2.AirTrafficComplexity.FromString,
             options,
             channel_credentials,
             insecure,

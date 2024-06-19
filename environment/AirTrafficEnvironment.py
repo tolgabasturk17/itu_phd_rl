@@ -57,7 +57,7 @@ class AirTrafficEnvironment(gym.Env):
 
         new_metrics = self._get_new_metrics_from_java(action)
         reward = self._calculate_reward(new_metrics)
-        done = self.current_step >= len(self.metrics_data['sector_density'])
+        done = self.current_step >= len(self.metrics_data['cruising_sector_density'])
         self.state = self._get_state()
         return self.state, reward, done, {}
 
@@ -65,24 +65,28 @@ class AirTrafficEnvironment(gym.Env):
         request = AirTrafficRequest(configuration_id=self.configurations[action])
         response = self.stub.GetAirTrafficInfo(request)
         new_metrics = {
-            'sector_density': response.sector_density,
+            'cruising_sector_density': response.cruising_sector_density,
+            'climbing_sector_density': response.climbing_sector_density,
+            'descending_sector_density': response.descending_sector_density,
             'loss_of_separation': response.loss_of_separation,
             'speed_deviation': response.speed_deviation,
-            'airflow_complexity': response.airflow_complexity,
             'sector_entry': response.sector_entry,
+            'airflow_complexity': response.airflow_complexity,
         }
         return new_metrics
 
     def _calculate_reward(self, new_metrics):
-        total_density = sum(new_metrics['sector_density'])
+        total_cruising_density = sum(new_metrics['cruising_sector_density'])
+        total_climbing_density = sum(new_metrics['climbing_sector_density'])
+        total_descending_density = sum(new_metrics['descending_sector_density'])
         total_los = sum(new_metrics['loss_of_separation'])
         total_speed_deviation = sum(new_metrics['speed_deviation'])
         total_airflow_complexity = sum(new_metrics['airflow_complexity'])
         total_sector_entry = sum(new_metrics['sector_entry'])
 
-        scaled_metrics = self.scaler.transform([[total_density, total_los, total_speed_deviation, total_airflow_complexity, total_sector_entry]])[0]
+        scaled_metrics = self.scaler.transform([[total_cruising_density, total_climbing_density, total_descending_density, total_los, total_speed_deviation, total_airflow_complexity, total_sector_entry]])[0]
 
-        reward = -(scaled_metrics[0] + scaled_metrics[1] + scaled_metrics[2] + scaled_metrics[3] + scaled_metrics[4])
+        reward = -(scaled_metrics[0] + scaled_metrics[1] + scaled_metrics[2] + scaled_metrics[3] + scaled_metrics[4] + scaled_metrics[5] + scaled_metrics[6])
         return reward
 
     def render(self, mode='human', close=False):
