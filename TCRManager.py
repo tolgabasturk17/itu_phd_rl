@@ -10,44 +10,71 @@ from air_traffic_pb2 import EmptyRequest, AirTrafficComplexity
 from air_traffic_pb2_grpc import AirTrafficServiceStub
 
 class TCRManager:
-    def __init__(self, config_data,  metrics_data, grpc_channel, n_episodes=1000, learning_rate=0.001):
+    def __init__(self, config_data, grpc_channel, n_episodes=1000, learning_rate=0.001):
         # Initialize the scaler
         self.scaler = MinMaxScaler()
 
-        self._update_scaler(metrics_data)
+        # Create gRPC stub
+        self.stub = AirTrafficServiceStub(grpc_channel)
+
+        # Get initial metrics data from Java server
+        initial_metrics_data = self._get_initial_metrics_data()
 
         # Initialize environment and agent
-        self.env = AirTrafficEnvironment(config_data, metrics_data, self.scaler, grpc_channel)
+        self.env = AirTrafficEnvironment(config_data, initial_metrics_data, self.scaler, grpc_channel)
         self.agent = ActorCriticAgent(lr=learning_rate, input_dims=self.env.observation_space.shape[0],
                                       n_actions=self.env.action_space.n)
         self.n_episodes = n_episodes
 
         # Start streaming in a separate thread
-        self.streaming_thread = threading.Thread(target=self._start_streaming)
-        self.streaming_thread.start()
+        #self.streaming_thread = threading.Thread(target=self._start_streaming)
+        #self.streaming_thread.start()
+
+    def _get_initial_metrics_data(self):
+        request = EmptyRequest()
+        response = next(self.stub.StreamAirTrafficInfo(request))
+        metrics_data = {
+            'configuration_id': response.configuration_id,
+            'cruising_sector_density': list(response.cruising_sector_density),
+            'climbing_sector_density': list(response.climbing_sector_density),
+            'descending_sector_density': list(response.descending_sector_density),
+            'loss_of_separation': list(response.loss_of_separation),
+            'speed_deviation': list(response.speed_deviation),
+            'sector_entry': list(response.sector_entry),
+            'airflow_complexity': list(response.airflow_complexity),
+        }
+        self._update_scaler(metrics_data)
+        return metrics_data
 
     def _start_streaming(self):
         request = EmptyRequest()
         responses = self.stub.StreamAirTrafficInfo(request)
         for response in responses:
             metrics_data = {
-                'cruising_sector_density': response.cruising_sector_density,
-                'climbing_sector_density': response.climbing_sector_density,
-                'descending_sector_density': response.descending_sector_density,
-                'loss_of_separation': response.loss_of_separation,
-                'speed_deviation': response.speed_deviation,
-                'sector_entry': response.sector_entry,
-                'airflow_complexity': response.airflow_complexity,
+                'configuration_id': response.configuration_id,
+                'cruising_sector_density': list(response.cruising_sector_density),
+                'climbing_sector_density': list(response.climbing_sector_density),
+                'descending_sector_density': list(response.descending_sector_density),
+                'loss_of_separation': list(response.loss_of_separation),
+                'speed_deviation': list(response.speed_deviation),
+                'sector_entry': list(response.sector_entry),
+                'airflow_complexity': list(response.airflow_complexity),
             }
             self.env.metrics_data = metrics_data
             self._update_scaler(metrics_data)
 
     def _update_scaler(self, metrics_data):
         flattened_metrics = []
-        for step in range(len(metrics_data['cruising_sector_density'])):
+        max_length = max(len(metric) for metric in metrics_data.values() if isinstance(metric, list))
+
+        for step in range(max_length):
             step_metrics = []
             for metric in metrics_data.values():
-                step_metrics.extend(metric[step])
+                if isinstance(metric, list):
+                    if step < len(metric):
+                        step_metrics.append(metric[step])
+                    else:
+                        step_metrics.append(0)
             flattened_metrics.append([0] + step_metrics)  # Add a placeholder for current_configuration
         self.scaler.fit(flattened_metrics)
 
@@ -66,6 +93,10 @@ class TCRManager:
                 print(f"Episode {episode}/{self.n_episodes}")
 
         print("Training finished.")
+        #self._cleanup()
+
+    #def _cleanup(self):
+    #    self.streaming_thread.join()
 
 
 # Main code
@@ -79,23 +110,6 @@ if __name__ == "__main__":
     # Create gRPC channel
     channel = grpc.insecure_channel('localhost:50051')
 
-    # Initial request to get metrics_data from Java server
-    stub = AirTrafficServiceStub(channel)
-
-    request = EmptyRequest()
-    response = stub.StreamAirTrafficInfo(request)
-
-    # Fill the metrics_data with the initial response
-    metrics_data = {
-        'cruising_sector_density': [response.cruising_sector_density],
-        'climbing_sector_density': [response.climbing_sector_density],
-        'descending_sector_density': [response.descending_sector_density],
-        'loss_of_separation': [response.loss_of_separation],
-        'speed_deviation': [response.speed_deviation],
-        'airflow_complexity': [response.airflow_complexity],
-        'sector_entry': [response.sector_entry]
-    }
-
     # Create Main instance and start streaming
-    main_instance = TCRManager(config_data, metrics_data, grpc_channel=channel)
+    main_instance = TCRManager(config_data, grpc_channel=channel)
     main_instance.train_agent()

@@ -18,12 +18,12 @@ class AirTrafficEnvironment(gym.Env):
         self.channel = grpc_channel
         self.stub = AirTrafficServiceStub(self.channel)
 
-        max_sectors = max([len(self.metrics_data[metric][0]) for metric in self.metrics_data])
+        max_sectors = max([len(metric) if isinstance(metric, list) else 1 for metric in self.metrics_data.values() if metric != self.metrics_data.get('configuration_id')])
         self.observation_space = spaces.Box(low=0, high=1, shape=(1 + 5 * max_sectors,), dtype=np.float32)
         self.action_space = spaces.Discrete(len(self.configurations))
 
     def _get_state_size(self):
-        max_sectors = max([len(self.metrics_data[metric][0]) for metric in self.metrics_data])
+        max_sectors = max([len(metric) if isinstance(metric, list) else 1 for metric in self.metrics_data.values() if metric != self.metrics_data.get('configuration_id')])
         return 1 + 5 * max_sectors
 
     def reset(self):
@@ -36,8 +36,16 @@ class AirTrafficEnvironment(gym.Env):
         metrics = self.metrics_data
         step_metrics = []
 
-        for metric in metrics.values():
-            step_metrics.extend(metric[self.current_step])
+        for metric_key, metric in metrics.items():
+            if metric_key == 'configuration_id':
+                continue
+            if isinstance(metric, list):
+                if self.current_step < len(metric):
+                    step_metrics.append(metric[self.current_step])
+                else:
+                    step_metrics.append(0)  # Add zero if the current step exceeds the length of the metric list
+            elif isinstance(metric, float):
+                step_metrics.append(metric)
 
         # Ensure the correct number of features
         required_features = self._get_state_size() - 1  # Subtract 1 for the current configuration
@@ -65,13 +73,14 @@ class AirTrafficEnvironment(gym.Env):
         request = AirTrafficRequest(configuration_id=self.configurations[action])
         response = self.stub.GetAirTrafficInfo(request)
         new_metrics = {
-            'cruising_sector_density': response.cruising_sector_density,
-            'climbing_sector_density': response.climbing_sector_density,
-            'descending_sector_density': response.descending_sector_density,
-            'loss_of_separation': response.loss_of_separation,
-            'speed_deviation': response.speed_deviation,
-            'sector_entry': response.sector_entry,
-            'airflow_complexity': response.airflow_complexity,
+            'configuration_id': response.configuration_id,
+            'cruising_sector_density': list(response.cruising_sector_density),
+            'climbing_sector_density': list(response.climbing_sector_density),
+            'descending_sector_density': list(response.descending_sector_density),
+            'loss_of_separation': list(response.loss_of_separation),
+            'speed_deviation': list(response.speed_deviation),
+            'sector_entry': list(response.sector_entry),
+            'airflow_complexity': list(response.airflow_complexity),
         }
         return new_metrics
 
