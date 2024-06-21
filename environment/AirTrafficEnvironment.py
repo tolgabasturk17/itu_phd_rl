@@ -18,13 +18,13 @@ class AirTrafficEnvironment(gym.Env):
         self.channel = grpc_channel
         self.stub = AirTrafficServiceStub(self.channel)
 
-        max_sectors = max([len(metric) if isinstance(metric, list) else 1 for metric in self.metrics_data.values() if metric != self.metrics_data.get('configuration_id')])
-        self.observation_space = spaces.Box(low=0, high=1, shape=(1 + 5 * max_sectors,), dtype=np.float32)
+        self.max_sectors = max([len(metric) if isinstance(metric, list) else 1 for metric in self.metrics_data.values() if metric != self.metrics_data.get('configuration_id')])
+        self.observation_space = spaces.Box(low=0, high=1, shape=(1 + 6 * self.max_sectors,), dtype=np.float32)
         self.action_space = spaces.Discrete(len(self.configurations))
 
     def _get_state_size(self):
-        max_sectors = max([len(metric) if isinstance(metric, list) else 1 for metric in self.metrics_data.values() if metric != self.metrics_data.get('configuration_id')])
-        return 1 + 5 * max_sectors
+        self.max_sectors = max([len(metric) if isinstance(metric, list) else 1 for metric in self.metrics_data.values() if metric != self.metrics_data.get('configuration_id')])
+        return 1 + 6 * self.max_sectors
 
     def reset(self):
         self.current_step = 0

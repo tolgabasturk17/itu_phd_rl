@@ -27,8 +27,8 @@ class TCRManager:
         self.n_episodes = n_episodes
 
         # Start streaming in a separate thread
-        #self.streaming_thread = threading.Thread(target=self._start_streaming)
-        #self.streaming_thread.start()
+        self.streaming_thread = threading.Thread(target=self._start_streaming)
+        self.streaming_thread.start()
 
     def _get_initial_metrics_data(self):
         request = EmptyRequest()
@@ -69,7 +69,9 @@ class TCRManager:
 
         for step in range(max_length):
             step_metrics = []
-            for metric in metrics_data.values():
+            for metric_key, metric in metrics_data.items():
+                if metric_key == 'configuration_id':
+                    continue
                 if isinstance(metric, list):
                     if step < len(metric):
                         step_metrics.append(metric[step])
@@ -93,17 +95,18 @@ class TCRManager:
                 print(f"Episode {episode}/{self.n_episodes}")
 
         print("Training finished.")
-        #self._cleanup()
+        self._cleanup()
 
-    #def _cleanup(self):
-    #    self.streaming_thread.join()
+    def _cleanup(self):
+        self.streaming_thread.join()
 
 
 # Main code
 if __name__ == "__main__":
     # Define config data (fill with actual data)
     config_data = {
-        'Configurations': ['CNF1', 'CNF2', 'CNF3A', 'CNF4B'],
+        'Configurations': ['LTAAWCTA.CNF1', 'LTAAWCTA.CNF2', 'LTAAWCTA.CNF3A', 'LTAAWCTA.CNF3B', 'LTAAWCTA.CNF3C', 'LTAAWCTA.CNF3D',
+                           'LTAAWCTA.CNF4A', 'LTAAWCTA.CNF4B', 'LTAAWCTA.CNF5A', 'LTAAWCTA.CNF5B', 'LTAAWCTA.CNF6A', 'LTAAWCTA.CNF7A', 'LTAAWCTA.CNF8A'],
         'current_configuration': 0  # Initial configuration index
     }
 
