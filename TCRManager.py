@@ -14,6 +14,8 @@ class TCRManager:
         # Initialize the scaler
         self.scaler = MinMaxScaler()
 
+        self.max_sectors = 8
+
         # Create gRPC stub
         self.stub = AirTrafficServiceStub(grpc_channel)
 
@@ -43,6 +45,7 @@ class TCRManager:
             'sector_entry': list(response.sector_entry),
             'airflow_complexity': list(response.airflow_complexity),
         }
+        self._pad_metrics(metrics_data)
         self._update_scaler(metrics_data)
         return metrics_data
 
@@ -60,8 +63,16 @@ class TCRManager:
                 'sector_entry': list(response.sector_entry),
                 'airflow_complexity': list(response.airflow_complexity),
             }
+            self._pad_metrics(metrics_data)
             self.env.metrics_data = metrics_data
             self._update_scaler(metrics_data)
+
+    def _pad_metrics(self, metrics):
+        for key in metrics.keys():
+            if key == 'configuration_id':
+                continue
+            while len(metrics[key]) < self.max_sectors:
+                metrics[key].append(0.0)
 
     def _update_scaler(self, metrics_data):
         flattened_metrics = []
@@ -99,7 +110,6 @@ class TCRManager:
 
     def _cleanup(self):
         self.streaming_thread.join()
-
 
 # Main code
 if __name__ == "__main__":

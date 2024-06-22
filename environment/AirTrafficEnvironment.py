@@ -18,7 +18,7 @@ class AirTrafficEnvironment(gym.Env):
         self.channel = grpc_channel
         self.stub = AirTrafficServiceStub(self.channel)
 
-        self.max_sectors = max([len(metric) if isinstance(metric, list) else 1 for metric in self.metrics_data.values() if metric != self.metrics_data.get('configuration_id')])
+        self.max_sectors = 8
         self.observation_space = spaces.Box(low=0, high=1, shape=(1 + 6 * self.max_sectors,), dtype=np.float32)
         self.action_space = spaces.Discrete(len(self.configurations))
 
@@ -34,30 +34,22 @@ class AirTrafficEnvironment(gym.Env):
 
     def _get_state(self):
         metrics = self.metrics_data
-        step_metrics = []
+        full_features = []
 
-        for metric_key, metric in metrics.items():
-            if metric_key == 'configuration_id':
-                continue
-            if isinstance(metric, list):
-                if self.current_step < len(metric):
-                    step_metrics.append(metric[self.current_step])
-                else:
-                    step_metrics.append(0)  # Add zero if the current step exceeds the length of the metric list
-            elif isinstance(metric, float):
-                step_metrics.append(metric)
+        # Configuration ID'yi dışarıda tut
+        config_id = metrics.pop('configuration_id', 'default-config')
 
-        # Ensure the correct number of features
-        required_features = self._get_state_size() - 1  # Subtract 1 for the current configuration
-        while len(step_metrics) < required_features:
-            step_metrics.append(0)  # Add zeros if there are not enough features
-        step_metrics = step_metrics[:required_features]  # Trim if there are too many features
+        # Her bir metrik için işlem yap
+        for metric_key, values in metrics.items():
+            # Eğer değerlerin uzunluğu max_sectors'dan az ise, eksik kısımları sıfır ile doldur
+            if len(values) < self.max_sectors:
+                values.extend([0.0] * (self.max_sectors - len(values)))
+            # Değerleri full_features listesine ekle
+            full_features.extend(values)
 
-        # Include current configuration at the beginning
-        full_features = [self.current_configuration] + step_metrics
-
-        scaled_metrics = self.scaler.transform([full_features])[0]
-        return np.array(scaled_metrics)
+        # Verileri ölçeklendir
+        scaled_features = self.scaler.transform([full_features])[0]
+        return np.array(scaled_features)
 
     def step(self, action):
         self.current_configuration = action
