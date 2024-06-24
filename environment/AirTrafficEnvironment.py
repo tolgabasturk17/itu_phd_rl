@@ -19,8 +19,17 @@ class AirTrafficEnvironment(gym.Env):
         self.stub = AirTrafficServiceStub(self.channel)
 
         self.max_sectors = 8
+        self.num_features = 7  # Total number of metric categories (excluding configuration_id)
+
         self.observation_space = spaces.Box(low=0, high=1, shape=(1 + 6 * self.max_sectors,), dtype=np.float32)
         self.action_space = spaces.Discrete(len(self.configurations))
+
+        self._initialize_scaler()
+
+    def _initialize_scaler(self):
+        # Initialize the scaler with a dummy dataset
+        dummy_data = np.zeros((1, self.num_features * self.max_sectors))
+        self.scaler.fit(dummy_data)
 
     def _get_state_size(self):
         self.max_sectors = max([len(metric) if isinstance(metric, list) else 1 for metric in self.metrics_data.values() if metric != self.metrics_data.get('configuration_id')])
@@ -46,6 +55,12 @@ class AirTrafficEnvironment(gym.Env):
                 values.extend([0.0] * (self.max_sectors - len(values)))
             # Değerleri full_features listesine ekle
             full_features.extend(values)
+
+        # Ensure full_features is of the correct length
+        while len(full_features) < self.num_features * self.max_sectors:
+            full_features.append(0.0)
+
+        full_features = full_features[:self.num_features * self.max_sectors]
 
         # Verileri ölçeklendir
         scaled_features = self.scaler.transform([full_features])[0]
