@@ -24,12 +24,25 @@ class AirTrafficEnvironment(gym.Env):
         self.observation_space = spaces.Box(low=0, high=1, shape=(1 + 6 * self.max_sectors,), dtype=np.float32)
         self.action_space = spaces.Discrete(len(self.configurations))
 
-        self._initialize_scaler()
+        self.scaler = self._initialize_scaler(metrics_data)
 
-    def _initialize_scaler(self):
-        # Initialize the scaler with a dummy dataset
-        dummy_data = np.zeros((1, self.num_features * self.max_sectors))
-        self.scaler.fit(dummy_data)
+    def _initialize_scaler(self, metrics_data):
+        # Tüm özellikler için 0 ile doldurulmuş veriler oluştur
+        flattened_metrics = []
+        for metric_key, values in metrics_data.items():
+            if metric_key == 'configuration_id':
+                continue
+            # Her metrik için 8 değere kadar doldurma yap
+            if len(values) < self.max_sectors:
+                values = values + [0.0] * (self.max_sectors - len(values))
+            flattened_metrics.extend(values)
+
+        # İlk eğitim için veri seti oluştur
+        training_data = [flattened_metrics for _ in range(10)]  # 10 örnek kullanarak scaler'ı eğit
+
+        scaler = MinMaxScaler()
+        scaler.fit(training_data)
+        return scaler
 
     def _get_state_size(self):
         self.max_sectors = max([len(metric) if isinstance(metric, list) else 1 for metric in self.metrics_data.values() if metric != self.metrics_data.get('configuration_id')])
