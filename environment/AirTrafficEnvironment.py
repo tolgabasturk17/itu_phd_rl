@@ -21,7 +21,7 @@ class AirTrafficEnvironment(gym.Env):
         self.max_sectors = 8
         self.num_features = 7  # Total number of metric categories (excluding configuration_id)
 
-        self.observation_space = spaces.Box(low=0, high=1, shape=(1 + 6 * self.max_sectors,), dtype=np.float32)
+        self.observation_space = spaces.Box(low=0, high=1, shape=(56,), dtype=np.float32)
         self.action_space = spaces.Discrete(len(self.configurations))
 
         self.scaler = self._initialize_scaler(metrics_data)

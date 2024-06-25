@@ -8,6 +8,11 @@ import grpc
 import threading
 from air_traffic_pb2 import EmptyRequest, AirTrafficComplexity
 from air_traffic_pb2_grpc import AirTrafficServiceStub
+import logging
+
+# Logger oluşturma
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class TCRManager:
     def __init__(self, config_data, grpc_channel, n_episodes=1000, learning_rate=0.001):
@@ -29,12 +34,18 @@ class TCRManager:
         self.n_episodes = n_episodes
 
         # Start streaming in a separate thread
+        self.running = True
         self.streaming_thread = threading.Thread(target=self._start_streaming)
         self.streaming_thread.start()
 
     def _get_initial_metrics_data(self):
         request = EmptyRequest()
-        response = next(self.stub.StreamAirTrafficInfo(request))
+        try:
+            response = next(self.stub.StreamAirTrafficInfo(request))
+        except grpc.RpcError as e:
+            logger.error(f"Failed to get initial metrics data: {e}")
+            raise e
+
         metrics_data = {
             'configuration_id': response.configuration_id,
             'cruising_sector_density': list(response.cruising_sector_density),
@@ -51,21 +62,26 @@ class TCRManager:
 
     def _start_streaming(self):
         request = EmptyRequest()
-        responses = self.stub.StreamAirTrafficInfo(request)
-        for response in responses:
-            metrics_data = {
-                'configuration_id': response.configuration_id,
-                'cruising_sector_density': list(response.cruising_sector_density),
-                'climbing_sector_density': list(response.climbing_sector_density),
-                'descending_sector_density': list(response.descending_sector_density),
-                'loss_of_separation': list(response.loss_of_separation),
-                'speed_deviation': list(response.speed_deviation),
-                'sector_entry': list(response.sector_entry),
-                'airflow_complexity': list(response.airflow_complexity),
-            }
-            self._pad_metrics(metrics_data)
-            self.env.metrics_data = metrics_data
-            self._update_scaler(metrics_data)
+        try:
+            responses = self.stub.StreamAirTrafficInfo(request)
+            for response in responses:
+                if not self.running:
+                    break
+                metrics_data = {
+                    'configuration_id': response.configuration_id,
+                    'cruising_sector_density': list(response.cruising_sector_density),
+                    'climbing_sector_density': list(response.climbing_sector_density),
+                    'descending_sector_density': list(response.descending_sector_density),
+                    'loss_of_separation': list(response.loss_of_separation),
+                    'speed_deviation': list(response.speed_deviation),
+                    'sector_entry': list(response.sector_entry),
+                    'airflow_complexity': list(response.airflow_complexity),
+                }
+                self._pad_metrics(metrics_data)
+                self.env.metrics_data = metrics_data
+                self._update_scaler(metrics_data)
+        except grpc.RpcError as e:
+            logger.error(f"gRPC error during streaming: {e}")
 
     def _pad_metrics(self, metrics):
         for key in metrics.keys():
@@ -103,13 +119,15 @@ class TCRManager:
 
             # Optionally log progress
             if episode % 100 == 0:
-                print(f"Episode {episode}/{self.n_episodes}")
+                logger.info(f"Episode {episode}/{self.n_episodes}")
 
-        print("Training finished.")
+        logger.info("Training finished.")
         self._cleanup()
 
     def _cleanup(self):
-        self.streaming_thread.join()
+        self.running = False
+        if self.streaming_thread.is_alive():
+            self.streaming_thread.join()
 
 # Main code
 if __name__ == "__main__":
@@ -125,4 +143,9 @@ if __name__ == "__main__":
 
     # Create Main instance and start streaming
     main_instance = TCRManager(config_data, grpc_channel=channel)
-    main_instance.train_agent()
+    try:
+        main_instance.train_agent()
+    except Exception as e:
+        logger.error(f"Exception occurred: {e}")
+    finally:
+        main_instance._cleanup()
