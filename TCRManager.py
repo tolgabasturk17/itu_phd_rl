@@ -16,9 +16,6 @@ logger = logging.getLogger(__name__)
 
 class TCRManager:
     def __init__(self, config_data, grpc_channel, n_episodes=1000, learning_rate=0.001):
-        # Initialize the scaler
-        self.scaler = MinMaxScaler()
-
         self.max_sectors = 8
 
         # Create gRPC stub
@@ -26,6 +23,10 @@ class TCRManager:
 
         # Get initial metrics data from Java server
         initial_metrics_data = self._get_initial_metrics_data()
+
+        # Initialize the scaler
+        self.state_scaler = MinMaxScaler()
+        self.cost_scaler = MinMaxScaler()
 
         # Initialize environment and agent
         self.env = AirTrafficEnvironment(config_data, initial_metrics_data, self.scaler, grpc_channel)
