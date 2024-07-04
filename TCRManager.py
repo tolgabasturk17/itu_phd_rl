@@ -106,7 +106,7 @@ class TCRManager:
                     else:
                         step_metrics.append(0)
             flattened_metrics.append([0] + step_metrics)  # Add a placeholder for current_configuration
-        self.scaler.fit(flattened_metrics)
+        self.state_scaler.fit(flattened_metrics)
 
     def train_agent(self):
         for episode in range(self.n_episodes):
