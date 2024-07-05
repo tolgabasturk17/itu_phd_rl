@@ -17,24 +17,19 @@ logger = logging.getLogger(__name__)
 class TCRManager:
     def __init__(self, config_data, grpc_channel, n_episodes=1000, learning_rate=0.001):
         self.max_sectors = 8
-
-        # Create gRPC stub
-        self.stub = AirTrafficServiceStub(grpc_channel)
-
-        # Get initial metrics data from Java server
-        initial_metrics_data = self._get_initial_metrics_data()
-
-        # Initialize the scaler
         self.state_scaler = MinMaxScaler()
         self.cost_scaler = MinMaxScaler()
+        self.stub = AirTrafficServiceStub(grpc_channel)
 
-        # Initialize environment and agent
-        self.env = AirTrafficEnvironment(config_data, initial_metrics_data, self.scaler, grpc_channel)
-        self.agent = ActorCriticAgent(lr=learning_rate, input_dims=self.env.observation_space.shape[0],
-                                      n_actions=self.env.action_space.n)
+        # Önce initial metrics data'yı alalım
+        initial_metrics_data = self._get_initial_metrics_data()
+
+        # Environment'ı oluşturalım
+        self.env = AirTrafficEnvironment(config_data, initial_metrics_data, self.state_scaler, self.cost_scaler, grpc_channel)
+
+        self.agent = ActorCriticAgent(lr=learning_rate, input_dims=self.env.observation_space.shape[0], n_actions=self.env.action_space.n)
         self.n_episodes = n_episodes
 
-        # Start streaming in a separate thread
         self.running = True
         self.streaming_thread = threading.Thread(target=self._start_streaming)
         self.streaming_thread.start()
@@ -58,7 +53,6 @@ class TCRManager:
             'airflow_complexity': list(response.airflow_complexity),
         }
         self._pad_metrics(metrics_data)
-        self._update_scaler(metrics_data)
         return metrics_data
 
     def _start_streaming(self):
@@ -80,7 +74,6 @@ class TCRManager:
                 }
                 self._pad_metrics(metrics_data)
                 self.env.metrics_data = metrics_data
-                self._update_scaler(metrics_data)
         except grpc.RpcError as e:
             logger.error(f"gRPC error during streaming: {e}")
 
@@ -90,23 +83,6 @@ class TCRManager:
                 continue
             while len(metrics[key]) < self.max_sectors:
                 metrics[key].append(0.0)
-
-    def _update_scaler(self, metrics_data):
-        flattened_metrics = []
-        max_length = max(len(metric) for metric in metrics_data.values() if isinstance(metric, list))
-
-        for step in range(max_length):
-            step_metrics = []
-            for metric_key, metric in metrics_data.items():
-                if metric_key == 'configuration_id':
-                    continue
-                if isinstance(metric, list):
-                    if step < len(metric):
-                        step_metrics.append(metric[step])
-                    else:
-                        step_metrics.append(0)
-            flattened_metrics.append([0] + step_metrics)  # Add a placeholder for current_configuration
-        self.state_scaler.fit(flattened_metrics)
 
     def train_agent(self):
         for episode in range(self.n_episodes):
@@ -118,7 +94,6 @@ class TCRManager:
                 self.agent.learn(state, reward, state_, done)
                 state = state_
 
-            # Optionally log progress
             if episode % 100 == 0:
                 logger.info(f"Episode {episode}/{self.n_episodes}")
 
@@ -130,19 +105,14 @@ class TCRManager:
         if self.streaming_thread.is_alive():
             self.streaming_thread.join()
 
-# Main code
 if __name__ == "__main__":
-    # Define config data (fill with actual data)
     config_data = {
-        'Configurations': ['LTAAWCTA.CNF1', 'LTAAWCTA.CNF2', 'LTAAWCTA.CNF3A', 'LTAAWCTA.CNF3B', 'LTAAWCTA.CNF3C', 'LTAAWCTA.CNF3D',
-                           'LTAAWCTA.CNF4A', 'LTAAWCTA.CNF4B', 'LTAAWCTA.CNF5A', 'LTAAWCTA.CNF5B', 'LTAAWCTA.CNF6A', 'LTAAWCTA.CNF7A', 'LTAAWCTA.CNF8A'],
-        'current_configuration': 0  # Initial configuration index
+        'Configurations': ['LTAAWCTA.CNF1', 'LTAAWCTA.CNF2', 'LTAAWCTA.CNF3A', 'LTAAWCTA.CNF3B', 'LTAAWCTA.CNF3C', 'LTAAWCTA.CNF3D', 'LTAAWCTA.CNF4A', 'LTAAWCTA.CNF4B', 'LTAAWCTA.CNF5A', 'LTAAWCTA.CNF5B', 'LTAAWCTA.CNF6A', 'LTAAWCTA.CNF7A', 'LTAAWCTA.CNF8A'],
+        'current_configuration': 0
     }
 
-    # Create gRPC channel
     channel = grpc.insecure_channel('localhost:50051')
 
-    # Create Main instance and start streaming
     main_instance = TCRManager(config_data, grpc_channel=channel)
     try:
         main_instance.train_agent()

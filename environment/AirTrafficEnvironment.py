@@ -108,6 +108,7 @@ class AirTrafficEnvironment(gym.Env):
             'sector_entry': list(response.sector_entry),
             'airflow_complexity': list(response.airflow_complexity),
         }
+        self._pad_metrics(new_metrics)
         return new_metrics
 
     def _calculate_cost(self, metrics):
@@ -115,6 +116,13 @@ class AirTrafficEnvironment(gym.Env):
         scaled_metrics = self.cost_scaler.transform([total_metrics])[0]
         cost = sum(scaled_metrics)
         return cost
+
+    def _pad_metrics(self, metrics):
+        for key in metrics.keys():
+            if key == 'configuration_id':
+                continue
+            while len(metrics[key]) < self.max_sectors:
+                metrics[key].append(0.0)
 
     def render(self, mode='human', close=False):
         pass
