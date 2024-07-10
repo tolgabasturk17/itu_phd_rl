@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class TCRManager:
-    def __init__(self, config_data, grpc_channel, n_episodes=1000, learning_rate=0.001):
+    def __init__(self, config_data, grpc_channel, n_episodes=3000, learning_rate=0.0005):
         self.max_sectors = 8
         self.state_scaler = MinMaxScaler()
         self.cost_scaler = MinMaxScaler()
