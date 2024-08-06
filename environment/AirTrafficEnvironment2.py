@@ -6,13 +6,11 @@ import grpc
 from air_traffic_pb2 import AirTrafficRequest
 from air_traffic_pb2_grpc import AirTrafficServiceStub
 
-class AirTrafficEnvironment(gym.Env):
-    def __init__(self, config_data, metrics_data, state_scaler, cost_scaler, grpc_channel):
-        super(AirTrafficEnvironment, self).__init__()
+class AirTrafficEnvironment2(gym.Env):
+    def __init__(self, config_data, metrics_data, grpc_channel):
+        super(AirTrafficEnvironment2, self).__init__()
         self.configurations = config_data['Configurations']
         self.metrics_data = metrics_data
-        self.state_scaler = state_scaler
-        self.cost_scaler = cost_scaler
         self.current_configuration = config_data['current_configuration']
         self.current_step = 0
 
@@ -25,22 +23,28 @@ class AirTrafficEnvironment(gym.Env):
         self.observation_space = spaces.Box(low=0, high=1, shape=(56,), dtype=np.float32)
         self.action_space = spaces.Discrete(len(self.configurations))
 
-        self.state_scaler = self._initialize_state_scaler(metrics_data)
-        self.cost_scaler = self._initialize_cost_scaler(metrics_data)
+        self.state_scalers = self._initialize_state_scalers(metrics_data)
+        self.cost_scalers = self._initialize_cost_scalers(metrics_data)
 
-    def _initialize_state_scaler(self, metrics_data):
-        flattened_metrics = self._flatten_metrics(metrics_data)
-        training_data = [flattened_metrics for _ in range(10)]
-        scaler = MinMaxScaler()
-        scaler.fit(training_data)
-        return scaler
+    def _initialize_state_scalers(self, metrics_data):
+        state_scalers = {}
+        for key in metrics_data:
+            if key != 'configuration_id':
+                scaler = MinMaxScaler()
+                data = np.array(metrics_data[key]).reshape(-1, 1)
+                scaler.fit(data)
+                state_scalers[key] = scaler
+        return state_scalers
 
-    def _initialize_cost_scaler(self, metrics_data):
+    def _initialize_cost_scalers(self, metrics_data):
+        cost_scalers = {}
         total_metrics = self._calculate_total_metrics(metrics_data)
-        training_data = [total_metrics for _ in range(10)]
-        scaler = MinMaxScaler()
-        scaler.fit(training_data)
-        return scaler
+        for key in total_metrics:
+            scaler = MinMaxScaler()
+            data = np.array(total_metrics[key]).reshape(-1, 1)
+            scaler.fit(data)
+            cost_scalers[key] = scaler
+        return cost_scalers
 
     def _flatten_metrics(self, metrics):
         flattened_metrics = []
@@ -48,25 +52,41 @@ class AirTrafficEnvironment(gym.Env):
             if metric_key == 'configuration_id':
                 continue
             if len(values) < self.max_sectors:
-                values.extend([0.0] * (self.max_sectors - len(values)))
+                mean_value = sum(values) / len(values) if values else 0.0
+                values.extend([mean_value] * (self.max_sectors - len(values)))
             flattened_metrics.extend(values)
         return flattened_metrics
 
     def _calculate_total_metrics(self, metrics):
-        total_metrics = [
-            sum(metrics['cruising_sector_density']),
-            sum(metrics['climbing_sector_density']),
-            sum(metrics['descending_sector_density']),
-            sum(metrics['loss_of_separation']),
-            sum(metrics['speed_deviation']),
-            sum(metrics['airflow_complexity']),
-            sum(metrics['sector_entry'])
-        ]
+        total_metrics = {
+            'cruising_sector_density': sum(metrics['cruising_sector_density']),
+            'climbing_sector_density': sum(metrics['climbing_sector_density']),
+            'descending_sector_density': sum(metrics['descending_sector_density']),
+            'loss_of_separation': sum(metrics['loss_of_separation']),
+            'speed_deviation': sum(metrics['speed_deviation']),
+            'airflow_complexity': sum(metrics['airflow_complexity']),
+            'sector_entry': sum(metrics['sector_entry'])
+        }
         return total_metrics
 
+    def _scale_metrics(self, metrics):
+        scaled_metrics = []
+        for key, scaler in self.state_scalers.items():
+            data = np.array(metrics[key]).reshape(-1, 1)
+            scaled_data = scaler.transform(data).flatten()
+            scaled_metrics.extend(scaled_data)
+        return scaled_metrics
+
+    def _scale_total_metrics(self, total_metrics):
+        scaled_total_metrics = []
+        for key, scaler in self.cost_scalers.items():
+            data = np.array([total_metrics[key]]).reshape(-1, 1)
+            scaled_data = scaler.transform(data).flatten()
+            scaled_total_metrics.extend(scaled_data)
+        return scaled_total_metrics
+
     def _get_state_size(self):
-        self.max_sectors = max([len(metric) if isinstance(metric, list) else 1 for metric in self.metrics_data.values() if metric != self.metrics_data.get('configuration_id')])
-        return 1 + 6 * self.max_sectors
+        return 1 + 7 * self.max_sectors
 
     def reset(self):
         self.current_step = 0
@@ -76,14 +96,12 @@ class AirTrafficEnvironment(gym.Env):
 
     def _get_state(self):
         metrics = self.metrics_data
-        full_features = self._flatten_metrics(metrics)
-        scaled_features = self.state_scaler.transform([full_features])[0]
-        return np.array(scaled_features)
+        scaled_metrics = self._scale_metrics(metrics)
+        return np.array(scaled_metrics)
+
     def _get_new_state(self, new_metrics):
-        metrics = new_metrics
-        full_features = self._flatten_metrics(metrics)
-        scaled_features = self.state_scaler.transform([full_features])[0]
-        return np.array(scaled_features)
+        scaled_metrics = self._scale_metrics(new_metrics)
+        return np.array(scaled_metrics)
 
     def step(self, action):
         self.current_configuration = action
@@ -95,7 +113,6 @@ class AirTrafficEnvironment(gym.Env):
         new_cost = self._calculate_cost(new_metrics)
 
         reward = new_cost - current_cost
-        #If all data is used then finish the episode by setting done = true
         done = self.current_step >= len(self.metrics_data['cruising_sector_density'])
         self.state = self._get_new_state(new_metrics)
         return self.state, reward, done, {}
@@ -118,7 +135,7 @@ class AirTrafficEnvironment(gym.Env):
 
     def _calculate_cost(self, metrics):
         total_metrics = self._calculate_total_metrics(metrics)
-        scaled_metrics = self.cost_scaler.transform([total_metrics])[0]
+        scaled_metrics = self._scale_total_metrics(total_metrics)
         cost = sum(scaled_metrics)
         return cost
 
@@ -126,8 +143,9 @@ class AirTrafficEnvironment(gym.Env):
         for key in metrics.keys():
             if key == 'configuration_id':
                 continue
+            mean_value = sum(metrics[key]) / len(metrics[key]) if metrics[key] else 0.0
             while len(metrics[key]) < self.max_sectors:
-                metrics[key].append(0.0)
+                metrics[key].append(mean_value)
 
     def render(self, mode='human', close=False):
         pass

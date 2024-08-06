@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from sklearn.preprocessing import MinMaxScaler
 from model.ActorCriticAgent import ActorCriticAgent
 from model.ActorCriticNetwork import ActorCriticNetwork
-from environment.AirTrafficEnvironment import AirTrafficEnvironment
+from environment.AirTrafficEnvironment2 import AirTrafficEnvironment2
 import grpc
 import threading
 from air_traffic_pb2 import EmptyRequest, AirTrafficComplexity
@@ -17,15 +17,13 @@ logger = logging.getLogger(__name__)
 class TCRManager:
     def __init__(self, config_data, grpc_channel, n_episodes=3000, learning_rate=0.0005):
         self.max_sectors = 8
-        self.state_scaler = MinMaxScaler()
-        self.cost_scaler = MinMaxScaler()
         self.stub = AirTrafficServiceStub(grpc_channel)
 
         # Önce initial metrics data'yı alalım
         initial_metrics_data = self._get_initial_metrics_data()
 
         # Environment'ı oluşturalım
-        self.env = AirTrafficEnvironment(config_data, initial_metrics_data, self.state_scaler, self.cost_scaler, grpc_channel)
+        self.env = AirTrafficEnvironment2(config_data, initial_metrics_data, grpc_channel)
 
         self.agent = ActorCriticAgent(lr=learning_rate, input_dims=self.env.observation_space.shape[0], n_actions=self.env.action_space.n)
         self.n_episodes = n_episodes
@@ -88,11 +86,28 @@ class TCRManager:
         for episode in range(self.n_episodes):
             state = self.env.reset()
             done = False
+            total_reward = 0
+            step_count = 0
+
             while not done:
                 action = self.agent.choose_action(state)
                 state_, reward, done, info = self.env.step(action)
-                self.agent.learn(state, reward, state_, done)
-                state = state_
+
+                # Öğrenme için agent aksiyonunun sonucunda elde edilen state_
+                learn_state = state_
+
+                # Döngünün devamı için gerçek dünya verisinden elde edilen state_
+                true_state = self.env._get_state()
+
+                self.agent.learn(state, reward, learn_state, done)
+                state = true_state
+
+                total_reward += reward
+                step_count += 1
+
+                logger.info(f"Episode: {episode}, Step: {step_count}, Action: {action}, Reward: {reward}")
+
+            logger.info(f"Episode {episode} finished. Total reward: {total_reward}, Total steps: {step_count}")
 
             if episode % 100 == 0:
                 logger.info(f"Episode {episode}/{self.n_episodes}")
