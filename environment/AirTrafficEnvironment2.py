@@ -27,12 +27,46 @@ class AirTrafficEnvironment2(gym.Env):
         self.cost_scalers = self._initialize_cost_scalers(metrics_data)
 
     def _initialize_state_scalers(self, metrics_data):
+
+        # Minimum ve maksimum değerleri belirle
+        min_max_values = {
+            'cruising_sector_density': {
+                'min': [0.0] * self.max_sectors,
+                'max': [50.0] * self.max_sectors
+            },
+            'climbing_sector_density': {
+                'min': [0.0] * self.max_sectors,
+                'max': [50.0] * self.max_sectors
+            },
+            'descending_sector_density': {
+                'min': [0.0] * self.max_sectors,
+                'max': [50.0] * self.max_sectors
+            },
+            'loss_of_separation': {
+                'min': [0.0] * self.max_sectors,
+                'max': [10.0] * self.max_sectors
+            },
+            'speed_deviation': {
+                'min': [0.0] * self.max_sectors,
+                'max': [200.0] * self.max_sectors
+            },
+            'airflow_complexity': {
+                'min': [-20.0] * self.max_sectors,
+                'max': [20.0] * self.max_sectors
+            },
+            'sector_entry': {
+                'min': [0.0] * self.max_sectors,
+                'max': [30.0] * self.max_sectors
+            }
+        }
+
         state_scalers = {}
         for key in metrics_data:
             if key != 'configuration_id':
                 scaler = MinMaxScaler()
-                data = np.array(metrics_data[key]).reshape(-1, 1)
-                scaler.fit(data)
+                # Her parametre için minimum ve maksimum değerleri kullanarak fit et
+                fit_data = np.array([min_max_values[key]['min'], min_max_values[key]['max']])
+                scaler.fit(fit_data)
                 state_scalers[key] = scaler
         return state_scalers
 
@@ -72,7 +106,8 @@ class AirTrafficEnvironment2(gym.Env):
     def _scale_metrics(self, metrics):
         scaled_metrics = []
         for key, scaler in self.state_scalers.items():
-            data = np.array(metrics[key]).reshape(-1, 1)
+            data = np.array(metrics[key]).reshape(1, -1)
+            # Flatten ve pad işlemi
             scaled_data = scaler.transform(data).flatten()
             scaled_metrics.extend(scaled_data)
         return scaled_metrics
