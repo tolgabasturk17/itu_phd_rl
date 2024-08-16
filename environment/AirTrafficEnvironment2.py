@@ -174,13 +174,20 @@ class AirTrafficEnvironment2(gym.Env):
         cost = sum(scaled_metrics)
         return cost
 
+    #def _pad_metrics(self, metrics):
+    #    for key in metrics.keys():
+    #        if key == 'configuration_id':
+    #            continue
+    #        mean_value = sum(metrics[key]) / len(metrics[key]) if metrics[key] else 0.0
+    #        while len(metrics[key]) < self.max_sectors:
+    #            metrics[key].append(mean_value)
+
     def _pad_metrics(self, metrics):
         for key in metrics.keys():
             if key == 'configuration_id':
                 continue
-            mean_value = sum(metrics[key]) / len(metrics[key]) if metrics[key] else 0.0
             while len(metrics[key]) < self.max_sectors:
-                metrics[key].append(mean_value)
+                metrics[key].append(0.0)
 
     def render(self, mode='human', close=False):
         pass
