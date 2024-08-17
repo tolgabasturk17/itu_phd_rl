@@ -72,7 +72,7 @@ class AirTrafficEnvironment2(gym.Env):
 
     def _initialize_cost_scalers(self, metrics_data):
         cost_scalers = {}
-        total_metrics = self._calculate_total_metrics(metrics_data)
+        total_metrics = self._calculate_controller_load(metrics_data)
         for key in total_metrics:
             scaler = MinMaxScaler()
             data = np.array(total_metrics[key]).reshape(-1, 1)
@@ -80,28 +80,30 @@ class AirTrafficEnvironment2(gym.Env):
             cost_scalers[key] = scaler
         return cost_scalers
 
-    def _flatten_metrics(self, metrics):
-        flattened_metrics = []
-        for metric_key, values in metrics.items():
-            if metric_key == 'configuration_id':
-                continue
-            if len(values) < self.max_sectors:
-                mean_value = sum(values) / len(values) if values else 0.0
-                values.extend([mean_value] * (self.max_sectors - len(values)))
-            flattened_metrics.extend(values)
-        return flattened_metrics
+    def _calculate_controller_load(self, metrics):
+        controller_load = {}
 
-    def _calculate_total_metrics(self, metrics):
-        total_metrics = {
-            'cruising_sector_density': sum(metrics['cruising_sector_density']),
-            'climbing_sector_density': sum(metrics['climbing_sector_density']),
-            'descending_sector_density': sum(metrics['descending_sector_density']),
-            'loss_of_separation': sum(metrics['loss_of_separation']),
-            'speed_deviation': sum(metrics['speed_deviation']),
-            'airflow_complexity': sum(metrics['airflow_complexity']),
-            'sector_entry': sum(metrics['sector_entry'])
-        }
-        return total_metrics
+        # Cruising, Climbing, Descending, Speed Deviation, Airflow Complexity ve Sector Entry için 0'dan büyük değerleri kullan
+        for key in ['cruising_sector_density', 'climbing_sector_density', 'descending_sector_density',
+                    'speed_deviation', 'sector_entry']:
+            non_zero_values = [value for value in metrics[key] if value > 0]
+            if non_zero_values:
+                controller_load[key] = np.mean(non_zero_values)
+            else:
+                controller_load[key] = 0.0  # Tüm değerler 0 ise veya hepsi negatifse, varsayılan olarak 0.0 kullanın
+
+        # Airflow Complexity için hem negatif hem pozitif değerleri dikkate al
+        if 'airflow_complexity' in metrics:
+            non_zero_values = [value for value in metrics['airflow_complexity']]
+            if non_zero_values:
+                controller_load['airflow_complexity'] = np.mean(non_zero_values)
+            else:
+                controller_load['airflow_complexity'] = 0.0
+
+        # Loss of Separation için toplam değeri kullan
+        controller_load['loss_of_separation'] = np.sum(metrics['loss_of_separation'])
+
+        return controller_load
 
     def _scale_metrics(self, metrics):
         scaled_metrics = []
@@ -169,7 +171,7 @@ class AirTrafficEnvironment2(gym.Env):
         return new_metrics
 
     def _calculate_cost(self, metrics):
-        total_metrics = self._calculate_total_metrics(metrics)
+        total_metrics = self._calculate_controller_load(metrics)
         scaled_metrics = self._scale_total_metrics(total_metrics)
         cost = sum(scaled_metrics)
         return cost
