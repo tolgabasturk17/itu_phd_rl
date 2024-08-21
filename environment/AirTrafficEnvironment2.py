@@ -83,7 +83,7 @@ class AirTrafficEnvironment2(gym.Env):
     def _calculate_controller_load(self, metrics):
         controller_load = {}
 
-        # Cruising, Climbing, Descending, Speed Deviation, Airflow Complexity ve Sector Entry için 0'dan büyük değerleri kullan
+        # Cruising, Climbing, Descending, Speed Deviation, ve Sector Entry için 0'dan büyük değerleri kullan
         for key in ['cruising_sector_density', 'climbing_sector_density', 'descending_sector_density',
                     'speed_deviation', 'sector_entry']:
             non_zero_values = [value for value in metrics[key] if value > 0]
@@ -92,13 +92,16 @@ class AirTrafficEnvironment2(gym.Env):
             else:
                 controller_load[key] = 0.0  # Tüm değerler 0 ise veya hepsi negatifse, varsayılan olarak 0.0 kullanın
 
-        # Airflow Complexity için hem negatif hem pozitif değerleri dikkate al
+        # Airflow Complexity için pozitif ve negatif değerleri ayrı ayrı ele al
         if 'airflow_complexity' in metrics:
-            non_zero_values = [value for value in metrics['airflow_complexity']]
-            if non_zero_values:
-                controller_load['airflow_complexity'] = np.mean(non_zero_values)
-            else:
-                controller_load['airflow_complexity'] = 0.0
+            positive_values = [value for value in metrics['airflow_complexity'] if value > 0]
+            negative_values = [value for value in metrics['airflow_complexity'] if value < 0]
+
+            positive_mean = np.mean(positive_values) if positive_values else 0.0
+            negative_mean = np.mean(negative_values) if negative_values else 0.0
+
+            # Negatif değerin etkisini artırmak için pozitif değerden çıkaralım
+            controller_load['airflow_complexity'] = (1.5 * abs(negative_mean)) - positive_mean
 
         # Loss of Separation için toplam değeri kullan
         controller_load['loss_of_separation'] = np.sum(metrics['loss_of_separation'])
