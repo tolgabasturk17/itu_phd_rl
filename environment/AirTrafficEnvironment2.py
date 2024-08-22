@@ -152,7 +152,7 @@ class AirTrafficEnvironment2(gym.Env):
         new_metrics = self._get_new_metrics_from_java(action)
         new_cost = self._calculate_cost(new_metrics)
 
-        reward = new_cost - current_cost
+        reward = current_cost - new_cost
         done = self.current_step >= len(self.metrics_data['cruising_sector_density'])
         self.state = self._get_new_state(new_metrics)
         return self.state, reward, done, {}
