@@ -109,11 +109,37 @@ class TCRManager:
 
             logger.info(f"Episode {episode} finished. Total reward: {total_reward}, Total steps: {step_count}")
 
-            if episode % 100 == 0:
-                logger.info(f"Episode {episode}/{self.n_episodes}")
+            if episode % 1 == 0:
+                logger.info(f"Saving model at episode {episode}")
+                self.save_model(f'actor_critic_model_{episode}.pth')
 
         logger.info("Training finished.")
+        self.save_model('actor_critic_model_final.pth')
         self._cleanup()
+
+    def save_model(self, filepath='actor_critic_model.pth'):
+        T.save(self.agent.actor_critic.state_dict(), filepath)
+        logger.info(f"Model saved to {filepath}")
+
+    def load_model(self, filepath='actor_critic_model.pth'):
+        self.agent.actor_critic.load_state_dict(T.load(filepath))
+        self.agent.actor_critic.eval()  # Modeli değerlendirme moduna geçir
+        logger.info(f"Model loaded from {filepath}")
+
+    def test_agent(self, n_episodes=100):
+        for episode in range(n_episodes):
+            state = self.env.reset()
+            done = False
+            total_reward = 0
+            step_count = 0
+
+            while not done:
+                action = self.agent.choose_action(state)
+                state, reward, done, info = self.env.step(action)
+                total_reward += reward
+                step_count += 1
+
+            logger.info(f"Test Episode {episode} finished. Total reward: {total_reward}, Total steps: {step_count}")
 
     def _cleanup(self):
         self.running = False
@@ -131,6 +157,8 @@ if __name__ == "__main__":
     main_instance = TCRManager(config_data, grpc_channel=channel)
     try:
         main_instance.train_agent()
+        # main_instance.load_model('actor_critic_model_final.pth')  # Modeli yüklemek için kullanılabilir
+        # main_instance.test_agent()
     except Exception as e:
         logger.error(f"Exception occurred: {e}")
     finally:

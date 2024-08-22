@@ -48,15 +48,15 @@ class AirTrafficEnvironment2(gym.Env):
             },
             'speed_deviation': {
                 'min': [0.0] * self.max_sectors,
-                'max': [200.0] * self.max_sectors
+                'max': [250.0] * self.max_sectors
             },
             'airflow_complexity': {
-                'min': [-20.0] * self.max_sectors,
+                'min': [-200.0] * self.max_sectors,
                 'max': [20.0] * self.max_sectors
             },
             'sector_entry': {
                 'min': [0.0] * self.max_sectors,
-                'max': [30.0] * self.max_sectors
+                'max': [50.0] * self.max_sectors
             }
         }
 
@@ -71,12 +71,43 @@ class AirTrafficEnvironment2(gym.Env):
         return state_scalers
 
     def _initialize_cost_scalers(self, metrics_data):
+
+        min_max_values = {
+            'cruising_sector_density': {
+                'min': [0.0],
+                'max': [30.0]
+            },
+            'climbing_sector_density': {
+                'min': [0.0],
+                'max': [30.0]
+            },
+            'descending_sector_density': {
+                'min': [0.0],
+                'max': [30.0]
+            },
+            'loss_of_separation': {
+                'min': [0.0],
+                'max': [10.0]
+            },
+            'speed_deviation': {
+                'min': [0.0],
+                'max': [250.0]
+            },
+            'airflow_complexity': {
+                'min': [0.0],
+                'max': [250.0]
+            },
+            'sector_entry': {
+                'min': [0.0],
+                'max': [30.0]
+            }
+        }
         cost_scalers = {}
         total_metrics = self._calculate_controller_load(metrics_data)
         for key in total_metrics:
             scaler = MinMaxScaler()
-            data = np.array(total_metrics[key]).reshape(-1, 1)
-            scaler.fit(data)
+            fit_data = np.array([min_max_values[key]['min'], min_max_values[key]['max']])
+            scaler.fit(fit_data)
             cost_scalers[key] = scaler
         return cost_scalers
 
