@@ -75,15 +75,15 @@ class AirTrafficEnvironment2(gym.Env):
         min_max_values = {
             'cruising_sector_density': {
                 'min': [0.0],
-                'max': [30.0]
+                'max': [20.0]
             },
             'climbing_sector_density': {
                 'min': [0.0],
-                'max': [30.0]
+                'max': [20.0]
             },
             'descending_sector_density': {
                 'min': [0.0],
-                'max': [30.0]
+                'max': [20.0]
             },
             'loss_of_separation': {
                 'min': [0.0],
@@ -91,7 +91,7 @@ class AirTrafficEnvironment2(gym.Env):
             },
             'speed_deviation': {
                 'min': [0.0],
-                'max': [250.0]
+                'max': [200.0]
             },
             'airflow_complexity': {
                 'min': [0.0],
@@ -99,7 +99,7 @@ class AirTrafficEnvironment2(gym.Env):
             },
             'sector_entry': {
                 'min': [0.0],
-                'max': [30.0]
+                'max': [20.0]
             }
         }
         cost_scalers = {}
