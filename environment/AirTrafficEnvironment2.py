@@ -207,7 +207,19 @@ class AirTrafficEnvironment2(gym.Env):
     def _calculate_cost(self, metrics):
         total_metrics = self._calculate_controller_load(metrics)
         scaled_metrics = self._scale_total_metrics(total_metrics)
-        cost = sum(scaled_metrics)
+
+        # Ağırlıklar: loss_of_separation ve airflow_complexity için 2 kat ağırlık
+        weights = {
+            'loss_of_separation': 2.0,
+            'airflow_complexity': 2.0
+        }
+
+        cost = 0
+        for key, value in zip(total_metrics.keys(), scaled_metrics):
+            # Eğer bu metrik özel bir ağırlığa sahipse onu kullan, değilse 1.0 ağırlık kullan
+            weight = weights.get(key, 1.0)
+            cost += value * weight
+
         return cost
 
     #def _pad_metrics(self, metrics):
