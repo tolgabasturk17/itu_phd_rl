@@ -1,13 +1,11 @@
 import torch as T
-import torch.nn.functional as F
-from sklearn.preprocessing import MinMaxScaler
 from model.ActorCriticAgent import ActorCriticAgent
-from model.ActorCriticNetwork import ActorCriticNetwork
 from environment.AirTrafficEnvironment2 import AirTrafficEnvironment2
 import grpc
 import threading
 from air_traffic_pb2 import EmptyRequest, AirTrafficComplexity
 from air_traffic_pb2_grpc import AirTrafficServiceStub
+
 import logging
 
 # Logger oluşturma
@@ -49,6 +47,7 @@ class TCRManager:
             'speed_deviation': list(response.speed_deviation),
             'sector_entry': list(response.sector_entry),
             'airflow_complexity': list(response.airflow_complexity),
+            'number_of_controllers': response.number_of_controllers
         }
         self._pad_metrics(metrics_data)
         return metrics_data
@@ -69,6 +68,7 @@ class TCRManager:
                     'speed_deviation': list(response.speed_deviation),
                     'sector_entry': list(response.sector_entry),
                     'airflow_complexity': list(response.airflow_complexity),
+                    'number_of_controllers': response.number_of_controllers
                 }
                 self._pad_metrics(metrics_data)
                 self.env.metrics_data = metrics_data
@@ -77,7 +77,7 @@ class TCRManager:
 
     def _pad_metrics(self, metrics):
         for key in metrics.keys():
-            if key == 'configuration_id':
+            if key == 'configuration_id' or key == 'number_of_controllers':
                 continue
             while len(metrics[key]) < self.max_sectors:
                 metrics[key].append(0.0)
@@ -156,6 +156,7 @@ if __name__ == "__main__":
 
     main_instance = TCRManager(config_data, grpc_channel=channel)
     try:
+        #main_instance.load_model('actor_critic_model_16.pth')  # Modeli yüklemek için kullanılabilir
         main_instance.train_agent()
         # main_instance.load_model('actor_critic_model_final.pth')  # Modeli yüklemek için kullanılabilir
         # main_instance.test_agent()

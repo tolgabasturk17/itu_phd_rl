@@ -20,7 +20,7 @@ class AirTrafficEnvironment2(gym.Env):
         self.max_sectors = 8
         self.num_features = 7  # Total number of metric categories (excluding configuration_id)
 
-        self.observation_space = spaces.Box(low=0, high=1, shape=(56,), dtype=np.float32)
+        self.observation_space = spaces.Box(low=0, high=1, shape=(57,), dtype=np.float32)
         self.action_space = spaces.Discrete(len(self.configurations))
 
         self.state_scalers = self._initialize_state_scalers(metrics_data)
@@ -57,6 +57,10 @@ class AirTrafficEnvironment2(gym.Env):
             'sector_entry': {
                 'min': [0.0] * self.max_sectors,
                 'max': [50.0] * self.max_sectors
+            },
+            'number_of_controllers': {
+                'min': [0.0],
+                'max': [16.0]
             }
         }
 
@@ -100,6 +104,10 @@ class AirTrafficEnvironment2(gym.Env):
             'sector_entry': {
                 'min': [0.0],
                 'max': [20.0]
+            },
+            'number_of_controllers': {
+                'min': [0.0],
+                'max': [16.0]
             }
         }
         cost_scalers = {}
@@ -136,6 +144,8 @@ class AirTrafficEnvironment2(gym.Env):
 
         # Loss of Separation için toplam değeri kullan
         controller_load['loss_of_separation'] = np.sum(metrics['loss_of_separation'])
+
+        controller_load['number_of_controllers'] = metrics['number_of_controllers']
 
         return controller_load
 
@@ -200,6 +210,7 @@ class AirTrafficEnvironment2(gym.Env):
             'speed_deviation': list(response.speed_deviation),
             'sector_entry': list(response.sector_entry),
             'airflow_complexity': list(response.airflow_complexity),
+            'number_of_controllers': response.number_of_controllers
         }
         self._pad_metrics(new_metrics)
         return new_metrics
@@ -211,7 +222,8 @@ class AirTrafficEnvironment2(gym.Env):
         # Ağırlıklar: loss_of_separation ve airflow_complexity için 2 kat ağırlık
         weights = {
             'loss_of_separation': 2.0,
-            'airflow_complexity': 2.0
+            'airflow_complexity': 2.0,
+            'number_of_controllers': 2.0
         }
 
         cost = 0
@@ -232,7 +244,7 @@ class AirTrafficEnvironment2(gym.Env):
 
     def _pad_metrics(self, metrics):
         for key in metrics.keys():
-            if key == 'configuration_id':
+            if key == 'configuration_id' or key == 'number_of_controllers':
                 continue
             while len(metrics[key]) < self.max_sectors:
                 metrics[key].append(0.0)
