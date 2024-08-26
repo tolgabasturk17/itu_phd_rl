@@ -111,8 +111,7 @@ class AirTrafficEnvironment2(gym.Env):
             }
         }
         cost_scalers = {}
-        total_metrics = self._calculate_controller_load(metrics_data)
-        for key in total_metrics:
+        for key in min_max_values:
             scaler = MinMaxScaler()
             fit_data = np.array([min_max_values[key]['min'], min_max_values[key]['max']])
             scaler.fit(fit_data)
@@ -133,13 +132,13 @@ class AirTrafficEnvironment2(gym.Env):
 
         # Airflow Complexity için pozitif ve negatif değerleri ayrı ayrı ele al
         if 'airflow_complexity' in metrics:
-            positive_values = [value for value in metrics['airflow_complexity'] if value > 0]
-            negative_values = [value for value in metrics['airflow_complexity'] if value < 0]
+            positive_values = [value for value in metrics['airflow_complexity'] if value > 5]
+            negative_values = [value for value in metrics['airflow_complexity'] if value < -5]
 
             positive_mean = np.mean(positive_values) if positive_values else 0.0
             negative_mean = np.mean(negative_values) if negative_values else 0.0
 
-            # Negatif değerin etkisini artırmak için pozitif değerden çıkaralım
+            # Multiply negative mean with 1.5 to increase its impact
             controller_load['airflow_complexity'] = (1.5 * abs(negative_mean)) - positive_mean
 
         # Loss of Separation için toplam değeri kullan

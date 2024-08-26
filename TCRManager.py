@@ -192,7 +192,7 @@ class TCRManager:
                 total_reward += reward
                 step_count += 1
 
-                logger.info(f"Episode: {episode}, Step: {step_count}, Action: {action}, Reward: {reward}, Total Reward: {total_reward}")
+                logger.info(f"Episode: {episode}, Step: {step_count}, Agent choice: {self.config_data['Configurations'][action]}, Reward: {reward}, Total Reward: {total_reward}")
 
             logger.info(f"Episode {episode} finished. Total reward: {total_reward}, Total steps: {step_count}")
             logger.info(f"Saving model at episode {episode}")
@@ -241,7 +241,7 @@ if __name__ == "__main__":
 
     main_instance = TCRManager(config_data, grpc_channel=channel)
     try:
-        #main_instance.load_model('actor_critic_model_16.pth')  # Modeli yüklemek için kullanılabilir
+        main_instance.load_model('actor_critic_model_0.pth')  # Modeli yüklemek için kullanılabilir
         main_instance.train_agent()
         # main_instance.load_model('actor_critic_model_final.pth')  # Modeli yüklemek için kullanılabilir
         # main_instance.test_agent()
