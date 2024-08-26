@@ -13,16 +13,84 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class TCRManager:
-    def __init__(self, config_data, grpc_channel, n_episodes=3000, learning_rate=0.0005):
+    """
+    TCRManager is a class responsible for managing air traffic complexity calculations
+    and interactions with a remote gRPC service that provides air traffic data.
+
+    Attributes:
+    -----------
+    max_sectors : int
+        The maximum number of sectors considered for air traffic analysis.
+
+    stub : AirTrafficServiceStub
+        A gRPC stub for interacting with the AirTrafficService to fetch air traffic data.
+
+    env : AirTrafficEnvironment2
+        An environment instance that simulates air traffic for the agent to interact with.
+
+    agent : ActorCriticAgent
+        The reinforcement learning agent that learns to manage air traffic complexity.
+
+    n_episodes : int
+        The number of training episodes for the reinforcement learning agent.
+
+    running : bool
+        A flag indicating whether the streaming process is currently running.
+
+    streaming_thread : threading.Thread
+        A thread responsible for streaming air traffic data from the gRPC server.
+
+     Methods:
+    --------
+    __init__(config_data: dict, grpc_channel: grpc.Channel, n_episodes: int = 3000, learning_rate: float = 0.0005):
+           Initializes the TCRManager with configuration data, a gRPC channel, number of episodes, and learning rate.
+
+     _get_initial_metrics_data() -> dict:
+         Fetches the initial metrics data from the gRPC service to initialize the environment.
+
+    _start_streaming():
+        Starts a background thread to continuously stream air traffic data from the gRPC service.
+
+    _pad_metrics(metrics: dict):
+        Pads the metrics data to ensure all lists have the same length as max_sectors.
+
+    train_agent():
+        Trains the reinforcement learning agent over a specified number of episodes.
+
+    _cleanup():
+        Cleans up resources and stops any running threads after training is complete.
+
+    """
+    def __init__(self, config_data, grpc_channel, n_episodes=100, learning_rate=0.0005):
+        """
+        Initializes the TCRManager with configuration data, a gRPC channel,
+        number of training episodes, and learning rate.
+
+        Parameters:
+        -----------
+        config_data : dict
+            A dictionary containing configuration settings for the air traffic environment.
+
+        grpc_channel : grpc.Channel
+            A gRPC channel used to communicate with the remote AirTrafficService.
+
+        n_episodes : int, optional
+            The number of episodes for training the agent (default is 3000).
+
+        learning_rate : float, optional
+            The learning rate for the reinforcement learning agent (default is 0.0005).
+        """
         self.max_sectors = 8
         self.stub = AirTrafficServiceStub(grpc_channel)
 
-        # Önce initial metrics data'yı alalım
+        # Fetch initial metrics data
         initial_metrics_data = self._get_initial_metrics_data()
 
-        # Environment'ı oluşturalım
+        # Initialize the environment
         self.env = AirTrafficEnvironment2(config_data, initial_metrics_data, grpc_channel)
+        self.config_data = config_data
 
+        # Initialize the agent
         self.agent = ActorCriticAgent(lr=learning_rate, input_dims=self.env.observation_space.shape[0], n_actions=self.env.action_space.n)
         self.n_episodes = n_episodes
 
@@ -31,6 +99,14 @@ class TCRManager:
         self.streaming_thread.start()
 
     def _get_initial_metrics_data(self):
+        """
+        Fetches the initial metrics data from the gRPC service.
+
+        Returns:
+        --------
+        dict
+            A dictionary containing initial air traffic metrics data.
+        """
         request = EmptyRequest()
         try:
             response = next(self.stub.StreamAirTrafficInfo(request))
@@ -53,6 +129,9 @@ class TCRManager:
         return metrics_data
 
     def _start_streaming(self):
+        """
+        Starts a thread to stream air traffic data continuously from the gRPC service.
+        """
         request = EmptyRequest()
         try:
             responses = self.stub.StreamAirTrafficInfo(request)
@@ -76,6 +155,14 @@ class TCRManager:
             logger.error(f"gRPC error during streaming: {e}")
 
     def _pad_metrics(self, metrics):
+        """
+        Ensures that all metric lists have the same length by padding them.
+
+        Parameters:
+            ----------
+        metrics : dict
+            A dictionary containing lists of metrics to be padded.
+        """
         for key in metrics.keys():
             if key == 'configuration_id' or key == 'number_of_controllers':
                 continue
@@ -105,13 +192,11 @@ class TCRManager:
                 total_reward += reward
                 step_count += 1
 
-                logger.info(f"Episode: {episode}, Step: {step_count}, Action: {action}, Reward: {reward}")
+                logger.info(f"Episode: {episode}, Step: {step_count}, Action: {action}, Reward: {reward}, Total Reward: {total_reward}")
 
             logger.info(f"Episode {episode} finished. Total reward: {total_reward}, Total steps: {step_count}")
-
-            if episode % 1 == 0:
-                logger.info(f"Saving model at episode {episode}")
-                self.save_model(f'actor_critic_model_{episode}.pth')
+            logger.info(f"Saving model at episode {episode}")
+            self.save_model(f'actor_critic_model_{episode}.pth')
 
         logger.info("Training finished.")
         self.save_model('actor_critic_model_final.pth')

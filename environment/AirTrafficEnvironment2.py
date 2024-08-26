@@ -194,7 +194,9 @@ class AirTrafficEnvironment2(gym.Env):
         new_cost = self._calculate_cost(new_metrics)
 
         reward = current_cost - new_cost
-        done = self.current_step >= len(self.metrics_data['cruising_sector_density'])
+        #finish at the end of the day
+        done = self.current_step % 135 == 0
+        #done = self.current_step >= len(self.metrics_data['cruising_sector_density'])
         self.state = self._get_new_state(new_metrics)
         return self.state, reward, done, {}
 
@@ -223,7 +225,7 @@ class AirTrafficEnvironment2(gym.Env):
         weights = {
             'loss_of_separation': 2.0,
             'airflow_complexity': 2.0,
-            'number_of_controllers': 2.0
+            'number_of_controllers': 1.0
         }
 
         cost = 0
