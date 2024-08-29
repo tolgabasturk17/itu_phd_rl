@@ -163,7 +163,7 @@ class AirTrafficEnvironment2(gym.Env):
         }
 
         state_scalers = {}
-        for key in metrics_data:
+        for key in min_max_values:
             if key != 'configuration_id':
                 scaler = MinMaxScaler()
                 fit_data = np.array([min_max_values[key]['min'], min_max_values[key]['max']])
@@ -253,6 +253,7 @@ class AirTrafficEnvironment2(gym.Env):
         if 'airflow_complexity' in metrics:
             positive_values = [value for value in metrics['airflow_complexity'] if value > 5]
             negative_values = [value for value in metrics['airflow_complexity'] if value < -5]
+
             positive_mean = np.mean(positive_values) if positive_values else 0.0
             negative_mean = np.mean(negative_values) if negative_values else 0.0
 
