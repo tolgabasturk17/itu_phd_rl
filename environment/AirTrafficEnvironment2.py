@@ -109,10 +109,10 @@ class AirTrafficEnvironment2(gym.Env):
         self.observation_space = spaces.Box(low=0, high=1, shape=(57,), dtype=np.float32)
         self.action_space = spaces.Discrete(len(self.configurations))
 
-        self.state_scalers = self._initialize_state_scalers(metrics_data)
-        self.cost_scalers = self._initialize_cost_scalers(metrics_data)
+        self.state_scalers = self._initialize_state_scalers()
+        self.cost_scalers = self._initialize_cost_scalers()
 
-    def _initialize_state_scalers(self, metrics_data):
+    def _initialize_state_scalers(self):
         """
         Initializes the MinMax scalers for each state metric based on predefined minimum and maximum values.
 
@@ -171,7 +171,7 @@ class AirTrafficEnvironment2(gym.Env):
                 state_scalers[key] = scaler
         return state_scalers
 
-    def _initialize_cost_scalers(self, metrics_data):
+    def _initialize_cost_scalers(self):
         """
         Initializes the MinMax scalers for cost metrics based on predefined minimum and maximum values.
 
