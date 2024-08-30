@@ -5,6 +5,7 @@ package edu.itu.cs.atcas.infrastructure.ml;
 // Request message
 message AirTrafficRequest {
   string configuration_id = 1;
+  string time_interval = 2;
 }
 
 // Empty request message
@@ -13,27 +14,29 @@ message EmptyRequest {}
 // Response message
 message AirTrafficResponse {
   string configuration_id = 1;
-  repeated double cruising_sector_density = 2;
-  repeated double climbing_sector_density = 3;
-  repeated double descending_sector_density = 4;
-  repeated double loss_of_separation = 5;
-  repeated double speed_deviation = 6;
-  repeated double sector_entry = 7;
-  repeated double airflow_complexity = 8;
-  int64 number_of_controllers = 9;
+  string time_interval = 2;
+  repeated double cruising_sector_density = 3;
+  repeated double climbing_sector_density = 4;
+  repeated double descending_sector_density = 5;
+  repeated double loss_of_separation = 6;
+  repeated double speed_deviation = 7;
+  repeated double sector_entry = 8;
+  repeated double airflow_complexity = 9;
+  int64 number_of_controllers = 10;
 }
 
 // Message for periodic updates
 message AirTrafficComplexity {
   string configuration_id = 1;
-  repeated double cruising_sector_density = 2;
-  repeated double climbing_sector_density = 3;
-  repeated double descending_sector_density = 4;
-  repeated double loss_of_separation = 5;
-  repeated double speed_deviation = 6;
-  repeated double sector_entry = 7;
-  repeated double airflow_complexity = 8;
-  int64 number_of_controllers = 9;
+  string time_interval = 2;
+  repeated double cruising_sector_density = 3;
+  repeated double climbing_sector_density = 4;
+  repeated double descending_sector_density = 5;
+  repeated double loss_of_separation = 6;
+  repeated double speed_deviation = 7;
+  repeated double sector_entry = 8;
+  repeated double airflow_complexity = 9;
+  int64 number_of_controllers = 10;
 }
 
 // Service definition

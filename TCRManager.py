@@ -116,6 +116,7 @@ class TCRManager:
 
         metrics_data = {
             'configuration_id': response.configuration_id,
+            'time_interval': response.time_interval,
             'cruising_sector_density': list(response.cruising_sector_density),
             'climbing_sector_density': list(response.climbing_sector_density),
             'descending_sector_density': list(response.descending_sector_density),
@@ -138,8 +139,10 @@ class TCRManager:
             for response in responses:
                 if not self.running:
                     break
+
                 metrics_data = {
                     'configuration_id': response.configuration_id,
+                    'time_interval': response.time_interval,
                     'cruising_sector_density': list(response.cruising_sector_density),
                     'climbing_sector_density': list(response.climbing_sector_density),
                     'descending_sector_density': list(response.descending_sector_density),
@@ -150,7 +153,8 @@ class TCRManager:
                     'number_of_controllers': response.number_of_controllers
                 }
                 self._pad_metrics(metrics_data)
-                self.env.metrics_data = metrics_data
+                self.env.metrics_queue.put(metrics_data)
+
         except grpc.RpcError as e:
             logger.error(f"gRPC error during streaming: {e}")
 
@@ -164,7 +168,7 @@ class TCRManager:
             A dictionary containing lists of metrics to be padded.
         """
         for key in metrics.keys():
-            if key == 'configuration_id' or key == 'number_of_controllers':
+            if key == 'configuration_id' or key == 'time_interval' or key == 'number_of_controllers':
                 continue
             while len(metrics[key]) < self.max_sectors:
                 metrics[key].append(0.0)
@@ -241,7 +245,7 @@ if __name__ == "__main__":
 
     main_instance = TCRManager(config_data, grpc_channel=channel)
     try:
-        main_instance.load_model('actor_critic_model_0.pth')  # Modeli yüklemek için kullanılabilir
+        #main_instance.load_model('actor_critic_model_0.pth')  # Modeli yüklemek için kullanılabilir
         main_instance.train_agent()
         # main_instance.load_model('actor_critic_model_final.pth')  # Modeli yüklemek için kullanılabilir
         # main_instance.test_agent()

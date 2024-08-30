@@ -1,3 +1,5 @@
+import queue
+
 import gym
 from gym import spaces
 import numpy as np
@@ -96,8 +98,14 @@ class AirTrafficEnvironment2(gym.Env):
         """
         super(AirTrafficEnvironment2, self).__init__()
         self.configurations = config_data['Configurations']
-        self.metrics_data = metrics_data
+        # Boş bir kuyruk oluştur
+        self.metrics_queue = queue.Queue()
+        # Veriyi kuyruğa ekle
+        self.metrics_queue.put(metrics_data)
+        self.current_metrics_data = metrics_data
+
         self.current_configuration = config_data['current_configuration']
+
         self.current_step = 0
 
         self.channel = grpc_channel
@@ -164,7 +172,7 @@ class AirTrafficEnvironment2(gym.Env):
 
         state_scalers = {}
         for key in min_max_values:
-            if key != 'configuration_id':
+            if key != 'configuration_id' and key != 'time_interval':
                 scaler = MinMaxScaler()
                 fit_data = np.array([min_max_values[key]['min'], min_max_values[key]['max']])
                 scaler.fit(fit_data)
@@ -287,13 +295,13 @@ class AirTrafficEnvironment2(gym.Env):
             scaled_metrics.extend(scaled_data)
         return scaled_metrics
 
-    def _scale_total_metrics(self, total_metrics):
+    def _scale_controller_load(self, controller_load):
         """
         Scales the total metrics using predefined scalers.
 
         Parameters
         ----------
-        total_metrics : dict
+        controller_load : dict
             The total metrics to be scaled.
 
         Returns
@@ -301,12 +309,12 @@ class AirTrafficEnvironment2(gym.Env):
         list
             A flattened list of scaled total metric values.
         """
-        scaled_total_metrics = []
+        scaled_controller_load = []
         for key, scaler in self.cost_scalers.items():
-            data = np.array([total_metrics[key]]).reshape(-1, 1)
+            data = np.array([controller_load[key]]).reshape(-1, 1)
             scaled_data = scaler.transform(data).flatten()
-            scaled_total_metrics.extend(scaled_data)
-        return scaled_total_metrics
+            scaled_controller_load.extend(scaled_data)
+        return scaled_controller_load
 
     def _get_state_size(self):
         """
@@ -342,7 +350,7 @@ class AirTrafficEnvironment2(gym.Env):
         np.ndarray
             The current state observation.
         """
-        metrics = self.metrics_data
+        metrics = self.current_metrics_data
         scaled_metrics = self._scale_metrics(metrics)
         return np.array(scaled_metrics)
 
@@ -381,20 +389,25 @@ class AirTrafficEnvironment2(gym.Env):
         self.current_configuration = action
         self.current_step += 1
 
-        current_cost = self._calculate_cost(self.metrics_data)
+        current_metrics = self.metrics_queue.get()
+        self.current_metrics_data = current_metrics
+        print(f"Processing data for time_interval: {current_metrics['time_interval']}")
 
-        new_metrics = self._get_new_metrics_from_java(action)
+        current_cost = self._calculate_cost(current_metrics)
+
+        new_metrics = self._get_new_metrics_from_java(action, current_metrics['time_interval'])
         new_cost = self._calculate_cost(new_metrics)
 
-        reward = current_cost - new_cost
+        reward = 10 * (current_cost - new_cost)
 
         # Finish at the end of the day
         done = self.current_step % 135 == 0
 
         self.state = self._get_new_state(new_metrics)
+
         return self.state, reward, done, {}
 
-    def _get_new_metrics_from_java(self, action):
+    def _get_new_metrics_from_java(self, action, current_time_interval):
         """
         Fetches new metrics data from the gRPC service based on the provided action.
 
@@ -408,10 +421,11 @@ class AirTrafficEnvironment2(gym.Env):
         dict
             The updated metrics data fetched from the gRPC service.
         """
-        request = AirTrafficRequest(configuration_id=self.configurations[action])
+        request = AirTrafficRequest(configuration_id=self.configurations[action], time_interval=current_time_interval)
         response = self.stub.GetAirTrafficInfo(request)
         new_metrics = {
             'configuration_id': response.configuration_id,
+            'time_interval' : response.time_interval,
             'cruising_sector_density': list(response.cruising_sector_density),
             'climbing_sector_density': list(response.climbing_sector_density),
             'descending_sector_density': list(response.descending_sector_density),
@@ -438,8 +452,8 @@ class AirTrafficEnvironment2(gym.Env):
         float
             The calculated cost value.
         """
-        total_metrics = self._calculate_controller_load(metrics)
-        scaled_metrics = self._scale_total_metrics(total_metrics)
+        controller_load = self._calculate_controller_load(metrics)
+        scaled_controller_load = self._scale_controller_load(controller_load)
 
         # Weights for specific metrics
         weights = {
@@ -449,7 +463,7 @@ class AirTrafficEnvironment2(gym.Env):
         }
 
         cost = 0
-        for key, value in zip(total_metrics.keys(), scaled_metrics):
+        for key, value in zip(controller_load.keys(), scaled_controller_load):
             weight = weights.get(key, 1.0)
             cost += value * weight
 
@@ -465,7 +479,7 @@ class AirTrafficEnvironment2(gym.Env):
             The metrics data to be padded.
         """
         for key in metrics.keys():
-            if key == 'configuration_id' or key == 'number_of_controllers':
+            if key == 'configuration_id' or key== 'time_interval' or key == 'number_of_controllers':
                 continue
             while len(metrics[key]) < self.max_sectors:
                 metrics[key].append(0.0)
