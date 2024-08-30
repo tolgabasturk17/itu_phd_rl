@@ -401,7 +401,7 @@ class AirTrafficEnvironment2(gym.Env):
         reward = 10 * (current_cost - new_cost)
 
         # Finish at the end of the day
-        done = self.current_step % 135 == 0
+        done = self.current_step % 136 == 0
 
         self.state = self._get_new_state(new_metrics)
 
