@@ -1,6 +1,6 @@
 import torch as T
 from model.ActorCriticAgent import ActorCriticAgent
-from environment.AirTrafficEnvironment2 import AirTrafficEnvironment2
+from environment.AirTrafficEnvironment import AirTrafficEnvironment
 import grpc
 import threading
 from air_traffic_pb2 import EmptyRequest, AirTrafficComplexity
@@ -87,7 +87,7 @@ class TCRManager:
         initial_metrics_data = self._get_initial_metrics_data()
 
         # Initialize the environment
-        self.env = AirTrafficEnvironment2(config_data, initial_metrics_data, grpc_channel)
+        self.env = AirTrafficEnvironment(config_data, initial_metrics_data, grpc_channel)
         self.config_data = config_data
 
         # Initialize the agent
