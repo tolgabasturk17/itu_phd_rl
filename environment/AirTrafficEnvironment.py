@@ -7,6 +7,12 @@ from sklearn.preprocessing import MinMaxScaler
 from air_traffic_pb2 import AirTrafficRequest
 from air_traffic_pb2_grpc import AirTrafficServiceStub
 
+import logging
+
+# Logger oluşturma
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 class AirTrafficEnvironment(gym.Env):
     """
     AirTrafficEnvironment2 is a custom OpenAI Gym environment designed for air traffic management simulations.
@@ -103,6 +109,10 @@ class AirTrafficEnvironment(gym.Env):
         self.max_sectors = 8
         self.num_features = 7  # Total number of metric categories (excluding configuration_id)
 
+        # Konfigürasyonları index’lemek için bir sözlük oluştur
+        self.config2index = {cfg_name: idx for idx, cfg_name in enumerate(self.configurations)}
+        self.n_config = len(self.configurations)  # Kaç farklı konfig varsa
+
         self.metrics_queue = queue.Queue()
         self.metrics_queue.put(metrics_data)
         self.current_metrics_data = metrics_data
@@ -110,8 +120,14 @@ class AirTrafficEnvironment(gym.Env):
         self.channel = grpc_channel
         self.stub = AirTrafficServiceStub(self.channel)
 
-        self.observation_space = spaces.Box(low=0, high=1, shape=(57,), dtype=np.float32)
-        self.action_space = spaces.Discrete(len(self.configurations))
+        # Metric size (ex. 57) + one-hot size (self.n_config)
+        # New observed state space dimension is 57 + n_config .
+        obs_dim = 57 + self.n_config
+        self.observation_space = spaces.Box(low=0, high=1, shape=(obs_dim,), dtype=np.float32)
+        self.action_space = spaces.Discrete(self.n_config)
+
+        #self.observation_space = spaces.Box(low=0, high=1, shape=(57,), dtype=np.float32)
+        #self.action_space = spaces.Discrete(len(self.configurations))
 
         self.state_scalers = self._initialize_state_scalers()
         self.cost_scalers = self._initialize_cost_scalers()
@@ -300,7 +316,23 @@ class AirTrafficEnvironment(gym.Env):
         """
         metrics = self.current_metrics_data
         scaled_metrics = self._scale_metrics(metrics)
-        return np.array(scaled_metrics)
+
+        # 1) Konfigürasyon adını alıyoruz
+        current_cfg_name = metrics['configuration_id']  # Örn. "LTAAWCTA.CNF3C"
+
+        # 2) Bu adı, config2index'ten geçirip bir integer index elde ediyoruz
+        config_idx = self.config2index.get(current_cfg_name, 0)
+
+        # 3) One-hot vektörü oluşturuyoruz
+        config_one_hot = np.zeros(self.n_config, dtype=np.float32)
+        config_one_hot[config_idx] = 1.0
+
+        # 4) scaled_metrics ile birleştiriyoruz
+        #    Artık observation = [metrikler..., one-hot konfig vektörü...]
+        full_state = np.concatenate((scaled_metrics, config_one_hot))
+
+        return full_state.astype(np.float32)
+        #return np.array(scaled_metrics)
 
     def _get_new_state(self, new_metrics):
         """
@@ -317,7 +349,24 @@ class AirTrafficEnvironment(gym.Env):
             The new state observation.
         """
         scaled_metrics = self._scale_metrics(new_metrics)
-        return np.array(scaled_metrics)
+
+        # 1) Konfigürasyon adını alıyoruz
+        current_cfg_name = new_metrics['configuration_id']  # Örn. "LTAAWCTA.CNF3C"
+
+        # 2) Bu adı, config2index'ten geçirip bir integer index elde ediyoruz
+        config_idx = self.config2index.get(current_cfg_name, 0)
+
+        # 3) One-hot vektörü oluşturuyoruz
+        config_one_hot = np.zeros(self.n_config, dtype=np.float32)
+        config_one_hot[config_idx] = 1.0
+
+        # 4) scaled_metrics ile birleştiriyoruz
+        #    Artık observation = [metrikler..., one-hot konfig vektörü...]
+        full_state = np.concatenate((scaled_metrics, config_one_hot))
+
+        return full_state.astype(np.float32)
+
+        #return np.array(scaled_metrics)
 
     def step(self, action):
         """
@@ -337,11 +386,13 @@ class AirTrafficEnvironment(gym.Env):
         self.current_step += 1
         current_metrics = self.metrics_queue.get()
         self.current_metrics_data = current_metrics
-        print(f"Processing data for time_interval: {current_metrics['time_interval']}")
 
         current_cost = self._calculate_cost(current_metrics)
         new_metrics = self._get_new_metrics_from_java(action, current_metrics['time_interval'])
         new_cost = self._calculate_cost(new_metrics)
+
+        logger.info(f"Processing data for time_interval: {current_metrics['time_interval']}, Controller cost: {current_cost}, Agent cost: {new_cost}")
+        logger.info(f"Complexity reduces: {(current_cost-new_cost)/current_cost*100} ")
 
         cost_difference = (current_cost - new_cost)
         if cost_difference == 0.0:

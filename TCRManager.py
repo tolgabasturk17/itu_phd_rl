@@ -224,8 +224,10 @@ class TCRManager:
 
             while not done:
                 action = self.agent.choose_action(state)
-                state, reward, done, info = self.env.step(action)
+                state_, reward, done, info = self.env.step(action)
                 total_reward += reward
+                logger.info(f"Episode: {episode}, Step: {step_count}, Agent choice: {self.config_data['Configurations'][action]}, Reward: {reward}, Total Reward: {total_reward}")
+                state = self.env._get_state()
                 step_count += 1
 
             logger.info(f"Test Episode {episode} finished. Total reward: {total_reward}, Total steps: {step_count}")
@@ -247,8 +249,8 @@ if __name__ == "__main__":
     try:
         #main_instance.load_model('actor_critic_model_0.pth')  # Modeli yüklemek için kullanılabilir
         main_instance.train_agent()
-        # main_instance.load_model('actor_critic_model_final.pth')  # Modeli yüklemek için kullanılabilir
-        # main_instance.test_agent()
+        #main_instance.load_model('actor_critic_model_final.pth')  # Modeli yüklemek için kullanılabilir
+        #main_instance.test_agent()
     except Exception as e:
         logger.error(f"Exception occurred: {e}")
     finally:
