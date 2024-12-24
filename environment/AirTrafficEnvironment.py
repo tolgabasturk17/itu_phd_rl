@@ -459,7 +459,7 @@ class AirTrafficEnvironment(gym.Env):
         weights = {
             'loss_of_separation': 2.0,
             'airflow_complexity': 2.0,
-            'number_of_controllers': 1.7
+            'number_of_controllers': 1.5
         }
 
         cost = 0
