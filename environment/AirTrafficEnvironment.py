@@ -9,13 +9,13 @@ from air_traffic_pb2_grpc import AirTrafficServiceStub
 
 import logging
 
-# Logger oluşturma
+# Logger creation
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class AirTrafficEnvironment(gym.Env):
     """
-    AirTrafficEnvironment2 is a custom OpenAI Gym environment designed for air traffic management simulations.
+    AirTrafficEnvironment is a custom OpenAI Gym environment designed for air traffic management simulations.
     It interacts with a remote gRPC service to fetch air traffic data and simulates various configurations of
     air traffic scenarios for reinforcement learning agents.
 
@@ -108,10 +108,11 @@ class AirTrafficEnvironment(gym.Env):
         self.current_step = 0
         self.max_sectors = 8
         self.num_features = 7  # Total number of metric categories (excluding configuration_id)
+        self.metric_size = self.num_features * self.max_sectors + 1 # 1 for number of controllers
 
-        # Konfigürasyonları index’lemek için bir sözlük oluştur
+        # Create dictionary to index configurations
         self.config2index = {cfg_name: idx for idx, cfg_name in enumerate(self.configurations)}
-        self.n_config = len(self.configurations)  # Kaç farklı konfig varsa
+        self.n_config = len(self.configurations)  # for one-hot
 
         self.metrics_queue = queue.Queue()
         self.metrics_queue.put(metrics_data)
@@ -122,12 +123,9 @@ class AirTrafficEnvironment(gym.Env):
 
         # Metric size (ex. 57) + one-hot size (self.n_config)
         # New observed state space dimension is 57 + n_config .
-        obs_dim = 57 + self.n_config
+        obs_dim = self.metric_size + self.n_config
         self.observation_space = spaces.Box(low=0, high=1, shape=(obs_dim,), dtype=np.float32)
         self.action_space = spaces.Discrete(self.n_config)
-
-        #self.observation_space = spaces.Box(low=0, high=1, shape=(57,), dtype=np.float32)
-        #self.action_space = spaces.Discrete(len(self.configurations))
 
         self.state_scalers = self._initialize_state_scalers()
         self.cost_scalers = self._initialize_cost_scalers()
