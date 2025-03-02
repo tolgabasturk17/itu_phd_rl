@@ -315,18 +315,18 @@ class AirTrafficEnvironment(gym.Env):
         metrics = self.current_metrics_data
         scaled_metrics = self._scale_metrics(metrics)
 
-        # 1) Konfigürasyon adını alıyoruz
-        current_cfg_name = metrics['configuration_id']  # Örn. "LTAAWCTA.CNF3C"
+        # 1) Get configuration name
+        current_cfg_name = metrics['configuration_id']  # Ex. "LTAAWCTA.CNF3C"
 
-        # 2) Bu adı, config2index'ten geçirip bir integer index elde ediyoruz
+        # 2) We pass this name through config2index and obtain an integer index
         config_idx = self.config2index.get(current_cfg_name, 0)
 
-        # 3) One-hot vektörü oluşturuyoruz
+        # 3) We create a one-hot vector
         config_one_hot = np.zeros(self.n_config, dtype=np.float32)
         config_one_hot[config_idx] = 1.0
 
-        # 4) scaled_metrics ile birleştiriyoruz
-        #    Artık observation = [metrikler..., one-hot konfig vektörü...]
+        # 4) We combine it with scaled_metrics
+        # Observations = [metrics..., one-hot config vector...]
         full_state = np.concatenate((scaled_metrics, config_one_hot))
 
         return full_state.astype(np.float32)
@@ -348,18 +348,18 @@ class AirTrafficEnvironment(gym.Env):
         """
         scaled_metrics = self._scale_metrics(new_metrics)
 
-        # 1) Konfigürasyon adını alıyoruz
+        # 1) Get configuration name
         current_cfg_name = new_metrics['configuration_id']  # Örn. "LTAAWCTA.CNF3C"
 
-        # 2) Bu adı, config2index'ten geçirip bir integer index elde ediyoruz
+        # 2) We pass this name through config2index and obtain an integer index
         config_idx = self.config2index.get(current_cfg_name, 0)
 
-        # 3) One-hot vektörü oluşturuyoruz
+        # 3) We create a one-hot vector
         config_one_hot = np.zeros(self.n_config, dtype=np.float32)
         config_one_hot[config_idx] = 1.0
 
-        # 4) scaled_metrics ile birleştiriyoruz
-        #    Artık observation = [metrikler..., one-hot konfig vektörü...]
+        # 4) We combine it with scaled_metrics
+        # Observations = [metrics..., one-hot config vector...]
         full_state = np.concatenate((scaled_metrics, config_one_hot))
 
         return full_state.astype(np.float32)
