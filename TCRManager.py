@@ -60,6 +60,8 @@ class TCRManager:
     _cleanup():
         Cleans up resources and stops any running threads after training is complete.
 
+    @author: tolga.basturk
+
     """
     def __init__(self, config_data, grpc_channel, n_episodes=100, learning_rate=0.0005):
         """
@@ -247,10 +249,10 @@ if __name__ == "__main__":
 
     main_instance = TCRManager(config_data, grpc_channel=channel)
     try:
-        #main_instance.load_model('actor_critic_model_0.pth')  # Modeli yüklemek için kullanılabilir
-        #main_instance.train_agent()
-        main_instance.load_model('actor_critic_model_final.pth')  # Modeli yüklemek için kullanılabilir
-        main_instance.test_agent()
+        #main_instance.load_model('actor_critic_model_0.pth')       # loads the model for training
+        #main_instance.train_agent()                                # train agent
+        main_instance.load_model('actor_critic_model_final.pth')    # loads the final model for testing
+        main_instance.test_agent()                                  # test agent
     except Exception as e:
         logger.error(f"Exception occurred: {e}")
     finally:

@@ -86,6 +86,9 @@ class AirTrafficEnvironment(gym.Env):
         Pads metrics lists to ensure consistent length across all metric categories.
     render(mode='human', close=False)
         Renders the environment. Currently a placeholder function.
+
+    Author: Tolga BASTURK
+
     """
 
     def __init__(self, config_data, metrics_data, grpc_channel):
