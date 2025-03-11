@@ -8,7 +8,7 @@ from air_traffic_pb2_grpc import AirTrafficServiceStub
 
 import logging
 
-# Logger oluşturma
+# Logger creation
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -176,6 +176,17 @@ class TCRManager:
                 metrics[key].append(0.0)
 
     def train_agent(self):
+        """
+        Trains the agent over a specified number of episodes.
+
+        During each episode:
+        - The environment is reset.
+        - The agent selects an action based on the current state.
+        - The action is executed in the environment, and a new state and reward are obtained.
+        - The agent learns from the transition.
+        - The process continues until the episode terminates.
+        - The model is periodically saved.
+        """
         for episode in range(self.n_episodes):
             state = self.env.reset()
             done = False
@@ -186,10 +197,10 @@ class TCRManager:
                 action = self.agent.choose_action(state)
                 state_, reward, done, info = self.env.step(action)
 
-                # Öğrenme için agent aksiyonunun sonucunda elde edilen state_
+                # The state obtained as a result of the agent action for learning.
                 learn_state = state_
 
-                # Döngünün devamı için gerçek dünya verisinden elde edilen state_
+                # State_obtained from real world data for the continuation of the loop
                 true_state = self.env._get_state()
 
                 self.agent.learn(state, reward, learn_state, done)
@@ -209,15 +220,37 @@ class TCRManager:
         self._cleanup()
 
     def save_model(self, filepath='actor_critic_model.pth'):
+        """
+        Saves the current model state to a file.
+
+        :param filepath: The file path where the model should be saved.
+        """
         T.save(self.agent.actor_critic.state_dict(), filepath)
         logger.info(f"Model saved to {filepath}")
 
     def load_model(self, filepath='actor_critic_model.pth'):
+        """
+        Loads a saved model from a file and sets the agent to evaluation mode.
+
+        :param filepath: The file path from where the model should be loaded.
+        """
         self.agent.actor_critic.load_state_dict(T.load(filepath))
         self.agent.actor_critic.eval()  # Modeli değerlendirme moduna geçir
         logger.info(f"Model loaded from {filepath}")
 
     def test_agent(self, n_episodes=100):
+        """
+        Tests the trained agent over a given number of episodes.
+
+        During testing:
+        - The environment is reset.
+        - The agent selects an action based on the current state.
+        - The action is executed in the environment, and a new state and reward are obtained.
+        - The total reward is recorded for evaluation purposes.
+        - The process continues until the episode terminates.
+
+        :param n_episodes: Number of test episodes to run.
+        """
         for episode in range(n_episodes):
             state = self.env.reset()
             done = False
@@ -235,6 +268,11 @@ class TCRManager:
             logger.info(f"Test Episode {episode} finished. Total reward: {total_reward}, Total steps: {step_count}")
 
     def _cleanup(self):
+        """
+        Cleans up resources and stops any running background threads.
+
+        Ensures that streaming processes are properly terminated before exiting.
+        """
         self.running = False
         if self.streaming_thread.is_alive():
             self.streaming_thread.join()
